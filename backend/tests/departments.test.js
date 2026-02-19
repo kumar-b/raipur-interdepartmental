@@ -1,6 +1,8 @@
 /**
  * departments.test.js — tests for /api/departments routes
- * Covers: list, filter by category, single dept by id, route ordering fix for /officials/all
+ * Covers: list, filter by category, single dept by id,
+ *         route ordering fix for /officials/all,
+ *         POST /api/departments (admin-only, create department)
  */
 
 jest.mock('../database/db', () => require('./testDb').createDb());
@@ -10,6 +12,17 @@ process.env.JWT_SECRET =
 
 const request = require('supertest');
 const app     = require('../app');
+
+let adminToken, revenueToken;
+
+beforeAll(async () => {
+  const [adminRes, revRes] = await Promise.all([
+    request(app).post('/api/auth/login').send({ username: 'admin',        password: 'Admin@Test123' }),
+    request(app).post('/api/auth/login').send({ username: 'dept_revenue', password: 'Dept@Test123' }),
+  ]);
+  adminToken   = adminRes.body.token;
+  revenueToken = revRes.body.token;
+});
 
 afterAll(() => {
   const db = require('../database/db');
@@ -110,5 +123,99 @@ describe('GET /api/departments/officials/all', () => {
     if (res.status === 200) {
       expect(Array.isArray(res.body)).toBe(true);
     }
+  });
+});
+
+// ── POST /api/departments ─────────────────────────────────────────────────────
+describe('POST /api/departments', () => {
+  test('admin creates a new department with a valid name', async () => {
+    const res = await request(app)
+      .post('/api/departments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Education Department' });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toHaveProperty('id');
+    expect(res.body.name).toBe('Education Department');
+    expect(res.body).toHaveProperty('code');
+    expect(typeof res.body.code).toBe('string');
+    expect(res.body.code.length).toBeGreaterThan(0);
+  });
+
+  test('auto-generates an uppercase code from the department name', async () => {
+    const res = await request(app)
+      .post('/api/departments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Water Resources' });
+
+    expect(res.status).toBe(201);
+    // Code should be derived from the name — uppercase, no spaces
+    expect(res.body.code).toMatch(/^[A-Z0-9_]+$/);
+  });
+
+  test('newly created department appears in GET /api/departments', async () => {
+    await request(app)
+      .post('/api/departments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Forest Department' });
+
+    const listRes = await request(app).get('/api/departments');
+    const names   = listRes.body.map(d => d.name);
+    expect(names).toContain('Forest Department');
+  });
+
+  test('handles duplicate name gracefully by generating a unique code', async () => {
+    // Create first
+    await request(app)
+      .post('/api/departments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Duplicate Dept' });
+
+    // Create again with same name — code conflict should be resolved automatically
+    const res = await request(app)
+      .post('/api/departments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Duplicate Dept' });
+
+    // Should still succeed with a disambiguated code
+    expect(res.status).toBe(201);
+    expect(res.body).toHaveProperty('id');
+  });
+
+  test('returns 400 when name is missing from the request body', async () => {
+    const res = await request(app)
+      .post('/api/departments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('error');
+  });
+
+  test('returns 400 when name is an empty string', async () => {
+    const res = await request(app)
+      .post('/api/departments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: '   ' }); // whitespace only
+
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('error');
+  });
+
+  test('department user cannot create departments — blocked with 403', async () => {
+    const res = await request(app)
+      .post('/api/departments')
+      .set('Authorization', `Bearer ${revenueToken}`)
+      .send({ name: 'Unauthorized Dept' });
+
+    expect(res.status).toBe(403);
+  });
+
+  test('unauthenticated request returns 401', async () => {
+    const res = await request(app)
+      .post('/api/departments')
+      .send({ name: 'No Auth Dept' });
+
+    expect(res.status).toBe(401);
   });
 });

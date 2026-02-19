@@ -420,3 +420,86 @@ describe('PATCH /api/portal/notices/:id/status', () => {
     expect(res.status).toBe(401);
   });
 });
+
+// ── GET /api/portal/notices/monthly-stats (admin only) ───────────────────────
+// Runs last so the PATCH tests above have already produced Completed entries.
+describe('GET /api/portal/notices/monthly-stats', () => {
+  test('admin receives an array with at least one entry after notices are completed', async () => {
+    const res = await request(app)
+      .get('/api/portal/notices/monthly-stats')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    // PATCH tests completed primaryNoticeId, so there must be at least one entry
+    expect(res.body.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('each entry has month in YYYY-MM format and a positive completed count', async () => {
+    const res = await request(app)
+      .get('/api/portal/notices/monthly-stats')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    res.body.forEach(entry => {
+      expect(entry).toHaveProperty('month');
+      expect(entry).toHaveProperty('completed');
+      expect(entry.month).toMatch(/^\d{4}-\d{2}$/);
+      expect(typeof entry.completed).toBe('number');
+      expect(entry.completed).toBeGreaterThan(0);
+    });
+  });
+
+  test('completed count increases after a new notice is marked complete', async () => {
+    const before      = await request(app)
+      .get('/api/portal/notices/monthly-stats')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const totalBefore = before.body.reduce((s, e) => s + e.completed, 0);
+
+    // Create a fresh notice and complete it
+    const createRes = await request(app)
+      .post('/api/portal/notices')
+      .set('Authorization', `Bearer ${revenueToken}`)
+      .field('title',           'Stats Increment Notice')
+      .field('body',            'Created to verify monthly stats increment.')
+      .field('priority',        'Low')
+      .field('deadline',        '2026-12-31')
+      .field('target_dept_ids', '2');
+
+    await request(app)
+      .patch(`/api/portal/notices/${createRes.body.noticeId}/status`)
+      .set('Authorization', `Bearer ${healthToken}`)
+      .field('status', 'Completed')
+      .field('remark', 'Completed for stats increment test.');
+
+    const after      = await request(app)
+      .get('/api/portal/notices/monthly-stats')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const totalAfter = after.body.reduce((s, e) => s + e.completed, 0);
+
+    expect(totalAfter).toBeGreaterThan(totalBefore);
+  });
+
+  test('results are ordered chronologically (oldest month first)', async () => {
+    const res = await request(app)
+      .get('/api/portal/notices/monthly-stats')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    const months = res.body.map(e => e.month);
+    const sorted = [...months].sort();
+    expect(months).toEqual(sorted);
+  });
+
+  test('department user is blocked with 403', async () => {
+    const res = await request(app)
+      .get('/api/portal/notices/monthly-stats')
+      .set('Authorization', `Bearer ${revenueToken}`);
+
+    expect(res.status).toBe(403);
+  });
+
+  test('unauthenticated request returns 401', async () => {
+    const res = await request(app).get('/api/portal/notices/monthly-stats');
+    expect(res.status).toBe(401);
+  });
+});
