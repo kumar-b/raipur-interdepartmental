@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "title": "Inter-Departmental Coordination Meeting — February 2026",
+    "date": "2026-02-15",
+    "department": "Collectorate",
+    "category": "Meeting",
+    "priority": "high",
+    "body": "All departmental heads are directed to attend the monthly coordination meeting scheduled at the Collectorate Conference Hall on 20 February 2026 at 11:00 AM. Agenda items include review of pending works, budget utilization, and Jan Darbar outcomes.",
+    "issuedBy": "Dr. Gaurav Kumar Singh, Collector & DM"
+  },
+  {
+    "id": 2,
+    "title": "Submission of Annual Performance Reports — FY 2025-26",
+    "date": "2026-02-10",
+    "department": "Collectorate",
+    "category": "Circular",
+    "priority": "high",
+    "body": "All departments are hereby instructed to submit their Annual Performance Reports for Financial Year 2025-26 to the Collectorate by 28 February 2026. Reports must include physical and financial progress of all schemes.",
+    "issuedBy": "Office of the Collector, Raipur"
+  },
+  {
+    "id": 3,
+    "title": "Swachh Bharat Mission — Drive Schedule Q1 2026",
+    "date": "2026-02-05",
+    "department": "Nagar Nigam",
+    "category": "Notice",
+    "priority": "normal",
+    "body": "The Municipal Corporation Raipur will conduct cleanliness drives across all wards every Saturday from March to May 2026. All departments with field offices are requested to participate and mobilize their staff accordingly.",
+    "issuedBy": "Shri Vishwadeep, Commissioner, Nagar Nigam"
+  },
+  {
+    "id": 4,
+    "title": "Digital India Training Programme for District Officers",
+    "date": "2026-01-28",
+    "department": "Collectorate",
+    "category": "Training",
+    "priority": "normal",
+    "body": "A three-day Digital India training programme will be held at the NIC Raipur from 10 to 12 March 2026. All district-level officers below the rank of SDM are nominated to attend. Travel and accommodation will be borne by the host department.",
+    "issuedBy": "Office of the Commissioner, Raipur Division"
+  },
+  {
+    "id": 5,
+    "title": "Gram Swaraj Abhiyan — Action Plan Submission",
+    "date": "2026-01-20",
+    "department": "Zilla Panchayat",
+    "category": "Circular",
+    "priority": "normal",
+    "body": "All Block Development Officers are directed to submit their Gram Swaraj Abhiyan action plans for 2026-27 to the Zilla Panchayat office by 10 February 2026. Plans should include convergence activities with Health, Education, and Agriculture departments.",
+    "issuedBy": "Kumar Biswaranjan, CEO, Zilla Panchayat"
+  },
+  {
+    "id": 6,
+    "title": "Security Advisory — Election Duty Preparedness",
+    "date": "2026-01-15",
+    "department": "Police Department",
+    "category": "Advisory",
+    "priority": "high",
+    "body": "All departmental heads are advised to ensure readiness of their departmental vehicles and personnel for election duty as per the ECI directives. Rosters must be submitted to the SSP office by 31 January 2026.",
+    "issuedBy": "Shri Lal Umed Singh, SSP Raipur"
+  }
+]

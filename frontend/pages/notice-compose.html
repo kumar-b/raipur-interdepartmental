@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Notice — Raipur Interdepartmental Portal</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/responsive.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container">
+      <div class="header-top">
+        <div class="site-branding">
+          <img src="../images/cg-logo.svg" alt="Government of Chhattisgarh Emblem" class="cg-logo" />
+          <div class="site-branding-text">
+            <span class="site-stamp">Government of Chhattisgarh &mdash; District Raipur</span>
+            <a href="../index.html" class="site-title">Raipur Interdepartmental Portal</a>
+            <p class="site-tagline">Coordination &bull; Communication &bull; Administration</p>
+          </div>
+        </div>
+        <div class="header-meta" id="header-meta"></div>
+      </div>
+      <nav class="site-nav" aria-label="Main navigation">
+        <button class="nav-toggle" aria-expanded="false" aria-controls="nav-list" id="nav-toggle">&#9776; MENU</button>
+        <ul class="nav-list" id="nav-list">
+          <li><a href="../index.html">Home</a></li>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="notice-compose.html" class="active">New Notice</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <div class="page-header">
+        <span class="eyebrow" id="compose-eyebrow">Compose</span>
+        <h1>Create Interdepartmental Notice</h1>
+        <p class="text-muted text-small">Issue a formal notice or circular to one or more departments.</p>
+      </div>
+
+      <form class="compose-wrap" id="compose-form" enctype="multipart/form-data" novalidate>
+
+        <div class="form-group">
+          <label for="title">Notice Title *</label>
+          <input type="text" id="title" name="title" maxlength="300" placeholder="Brief, clear subject of the notice" required />
+        </div>
+
+        <div class="form-group">
+          <label for="body">Notice Body *</label>
+          <textarea id="body" name="body" style="min-height:160px;" maxlength="5000" placeholder="Full text of the notice or circular..." required></textarea>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+          <div class="form-group">
+            <label for="priority">Priority *</label>
+            <select id="priority" name="priority" required>
+              <option value="">— Select —</option>
+              <option value="High">High</option>
+              <option value="Normal">Normal</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="deadline">Compliance Deadline *</label>
+            <input type="date" id="deadline" name="deadline" required />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Target Departments *</label>
+          <div style="margin-bottom:0.6rem;">
+            <label class="dept-checkbox-item" style="margin-bottom:0.3rem;">
+              <input type="radio" name="target_mode" value="all" id="target_all_radio" />
+              <strong>All Departments</strong>
+            </label>
+            <label class="dept-checkbox-item">
+              <input type="radio" name="target_mode" value="specific" id="target_specific_radio" checked />
+              Specific departments (select below)
+            </label>
+          </div>
+          <div class="dept-checkbox-grid" id="dept-checkbox-grid" style="display:grid;">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Attach Official Letter <span class="text-muted">(optional)</span></label>
+          <div class="file-input-wrap">
+            <input type="file" id="attachment" name="attachment" accept=".pdf,.jpg,.jpeg,.png,.webp" />
+            <p class="text-muted" style="font-size:0.68rem; margin:0.4rem 0 0;">PDF, JPG, PNG or WebP &mdash; max 10 MB</p>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+          <button type="submit" class="btn">Issue Notice</button>
+          <a href="dashboard.html" class="btn btn-outline">Cancel</a>
+        </div>
+
+        <div class="form-status" id="compose-status"></div>
+
+      </form>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-bottom">
+        &copy; <span id="footer-year"></span> District Administration Raipur, Government of Chhattisgarh.
+      </div>
+    </div>
+  </footer>
+
+  <script src="../js/main.js"></script>
+  <script src="../js/compose.js"></script>
+</body>
+</html>

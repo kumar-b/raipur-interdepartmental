@@ -1,0 +1,122 @@
+[
+  {
+    "id": 1,
+    "code": "REVENUE",
+    "name": "Revenue Department",
+    "website": "https://revenue.cg.nic.in",
+    "description": "Manages land records, revenue collection, and general district administration.",
+    "category": "Administration"
+  },
+  {
+    "id": 2,
+    "code": "PRD",
+    "name": "Panchayat and Rural Development",
+    "website": "http://prd.cg.gov.in/",
+    "description": "Oversees rural governance, gram panchayats, and rural development schemes.",
+    "category": "Rural Development"
+  },
+  {
+    "id": 3,
+    "code": "HEALTH",
+    "name": "Health Department",
+    "website": "http://www.cghealth.nic.in",
+    "description": "Administers public health services, hospitals, and disease control programs.",
+    "category": "Social Services"
+  },
+  {
+    "id": 4,
+    "code": "AGRI",
+    "name": "Agriculture Department",
+    "website": "http://agriportal.cg.nic.in",
+    "description": "Promotes crop development, farmer welfare, and agricultural infrastructure.",
+    "category": "Agriculture"
+  },
+  {
+    "id": 5,
+    "code": "FOOD",
+    "name": "Food Department",
+    "website": "http://www.khadya.cg.nic.in/",
+    "description": "Manages public distribution system and food security programs.",
+    "category": "Social Services"
+  },
+  {
+    "id": 6,
+    "code": "EDU",
+    "name": "Education Department",
+    "website": "http://eduportal.cg.nic.in",
+    "description": "Administers primary and secondary schooling across government and aided schools.",
+    "category": "Social Services"
+  },
+  {
+    "id": 7,
+    "code": "COMMERCE",
+    "name": "Commerce and Industry",
+    "website": "https://industries.cg.gov.in",
+    "description": "Facilitates industrial investment, trade licenses, and economic development.",
+    "category": "Economy"
+  },
+  {
+    "id": 8,
+    "code": "MINING",
+    "name": "Mining Department",
+    "website": "http://chhattisgarhmines.gov.in",
+    "description": "Regulates mineral extraction, leases, and environmental compliance.",
+    "category": "Economy"
+  },
+  {
+    "id": 9,
+    "code": "HOME",
+    "name": "Home Department",
+    "website": "https://home.cg.gov.in/",
+    "description": "Coordinates law and order, police, and internal security matters.",
+    "category": "Administration"
+  },
+  {
+    "id": 10,
+    "code": "TRANSPORT",
+    "name": "Transport Department",
+    "website": "https://cgtransport.gov.in",
+    "description": "Handles vehicle registration, driving licenses, and road transport regulation.",
+    "category": "Infrastructure"
+  },
+  {
+    "id": 11,
+    "code": "LABOUR",
+    "name": "Labour Department",
+    "website": "https://shramevjayate.cg.gov.in/",
+    "description": "Enforces labour laws, industrial relations, and worker welfare schemes.",
+    "category": "Social Services"
+  },
+  {
+    "id": 12,
+    "code": "PWD",
+    "name": "Public Works Department",
+    "website": "https://pwd.cg.nic.in/",
+    "description": "Constructs and maintains roads, bridges, and government buildings.",
+    "category": "Infrastructure"
+  },
+  {
+    "id": 13,
+    "code": "SOCIAL",
+    "name": "Social Welfare Department",
+    "website": "https://sw.cg.gov.in/",
+    "description": "Implements welfare programs for women, children, disabled, and senior citizens.",
+    "category": "Social Services"
+  },
+  {
+    "id": 14,
+    "code": "HIGHER_EDU",
+    "name": "Higher Education Department",
+    "website": "https://highereducation.cg.gov.in/",
+    "description": "Regulates colleges, universities, and professional education institutions.",
+    "category": "Social Services"
+  },
+  {
+    "id": 15,
+    "code": "FINANCE",
+    "name": "Finance Department",
+    "website": "https://finance.cg.gov.in/",
+    "description": "Manages state budget, treasury operations, and financial planning.",
+    "category": "Administration"
+  }
+]

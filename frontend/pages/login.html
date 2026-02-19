@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — Raipur Interdepartmental Portal</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/responsive.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container">
+      <div class="header-top">
+        <div class="site-branding">
+          <img src="../images/cg-logo.svg" alt="Government of Chhattisgarh Emblem" class="cg-logo" />
+          <div class="site-branding-text">
+            <span class="site-stamp">Government of Chhattisgarh &mdash; District Raipur</span>
+            <a href="../index.html" class="site-title">Raipur Interdepartmental Portal</a>
+            <p class="site-tagline">Coordination &bull; Communication &bull; Administration</p>
+          </div>
+        </div>
+      </div>
+      <nav class="site-nav" aria-label="Main navigation">
+        <button class="nav-toggle" aria-expanded="false" aria-controls="nav-list" id="nav-toggle">&#9776; MENU</button>
+        <ul class="nav-list" id="nav-list">
+          <li><a href="../index.html">Home</a></li>
+          <li><a href="departments.html">Departments</a></li>
+          <li><a href="notices.html">Notices</a></li>
+          <li><a href="officials.html">Who&rsquo;s Who</a></li>
+          <li><a href="contact.html">Contact</a></li>
+          <li><a href="login.html" class="active">Portal Login</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+      <div class="login-card">
+        <div class="login-brand">
+          <span class="site-stamp">Secure Access</span>
+          <h1 style="font-size:1.5rem; margin-top:0.3rem;">Portal Login</h1>
+          <p class="text-muted text-small">For authorised departmental users only.</p>
+        </div>
+
+        <form id="login-form" novalidate>
+          <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" placeholder="e.g. dept_revenue" autocomplete="username" required />
+          </div>
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" autocomplete="current-password" required />
+          </div>
+          <button type="submit" class="btn" style="width:100%;">Sign In</button>
+          <div class="form-status" id="login-status"></div>
+        </form>
+
+        <hr class="rule" style="margin:1.5rem 0 1rem;" />
+        <p class="text-muted text-small text-center">
+          Trouble logging in? Contact the District Administration.<br />
+          <a href="contact.html">Submit a request &rarr;</a>
+        </p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-bottom">
+        &copy; <span id="footer-year"></span> District Administration Raipur, Government of Chhattisgarh.
+      </div>
+    </div>
+  </footer>
+
+  <script src="../js/main.js"></script>
+  <script>
+    (function () {
+      // If already logged in, redirect away
+      const token = localStorage.getItem('portal_token');
+      const user  = JSON.parse(localStorage.getItem('portal_user') || 'null');
+      if (token && user) {
+        window.location.href = user.role === 'admin' ? 'admin.html' : 'dashboard.html';
+      }
+    })();
+
+    document.getElementById('login-form').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const btn    = this.querySelector('button[type=submit]');
+      const status = document.getElementById('login-status');
+      btn.disabled = true;
+      btn.textContent = 'Signing in...';
+      status.style.display = 'none';
+
+      try {
+        const res  = await fetch('/api/auth/login', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            username: document.getElementById('username').value.trim(),
+            password: document.getElementById('password').value
+          })
+        });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || 'Login failed.');
+
+        localStorage.setItem('portal_token', data.token);
+        localStorage.setItem('portal_user',  JSON.stringify(data.user));
+
+        window.location.href = data.user.role === 'admin' ? 'admin.html' : 'dashboard.html';
+      } catch (err) {
+        status.className    = 'form-status error';
+        status.textContent  = err.message;
+        status.style.display = 'block';
+        btn.disabled        = false;
+        btn.textContent     = 'Sign In';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Notices &amp; Circulars — Raipur Interdepartmental Portal</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/responsive.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container">
+      <div class="header-top">
+        <div class="site-branding">
+          <img src="../images/cg-logo.svg" alt="Government of Chhattisgarh Emblem" class="cg-logo" />
+          <div class="site-branding-text">
+            <span class="site-stamp">Government of Chhattisgarh &mdash; District Raipur</span>
+            <a href="../index.html" class="site-title">Raipur Interdepartmental Portal</a>
+            <p class="site-tagline">Coordination &bull; Communication &bull; Administration</p>
+          </div>
+        </div>
+        <div class="header-meta">
+          <span id="live-date"></span><br />
+          Raipur, Chhattisgarh 492001
+        </div>
+      </div>
+      <nav class="site-nav" aria-label="Main navigation">
+        <button class="nav-toggle" aria-expanded="false" aria-controls="nav-list" id="nav-toggle">&#9776; MENU</button>
+        <ul class="nav-list" id="nav-list">
+          <li><a href="../index.html">Home</a></li>
+          <li><a href="departments.html">Departments</a></li>
+          <li><a href="notices.html" class="active">Notices &amp; Circulars</a></li>
+          <li><a href="officials.html">Who&rsquo;s Who</a></li>
+          <li><a href="contact.html">Contact</a></li>
+          <li><a href="login.html" id="nav-portal-login" style="background:var(--ink);color:var(--paper);">Portal Login</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+
+      <div class="page-header">
+        <span class="eyebrow">District Raipur &rsaquo; Official Communications</span>
+        <h1>Notices &amp; Circulars</h1>
+        <p class="text-muted text-small">Official notices, circulars, advisories, and meeting announcements from all departments.</p>
+      </div>
+
+      <!-- Filter bar -->
+      <div class="filter-bar" id="notice-filter">
+        <button class="filter-btn active" data-cat="all">All</button>
+        <button class="filter-btn" data-cat="Circular">Circulars</button>
+        <button class="filter-btn" data-cat="Meeting">Meetings</button>
+        <button class="filter-btn" data-cat="Notice">Notices</button>
+        <button class="filter-btn" data-cat="Training">Training</button>
+        <button class="filter-btn" data-cat="Advisory">Advisory</button>
+      </div>
+
+      <div id="notices-list">
+        <!-- Populated by JS -->
+      </div>
+
+      <!-- Notice detail modal -->
+      <div id="notice-modal" style="display:none; position:fixed; inset:0; background:rgba(26,26,24,0.55); z-index:100; overflow-y:auto;">
+        <div style="max-width:600px; margin:3rem auto; background:var(--paper); border:1px solid var(--rule); padding:2rem;" id="modal-content">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-col">
+          <h4>Quick Links</h4>
+          <a href="../index.html">Home</a>
+          <a href="departments.html">Departments</a>
+          <a href="notices.html">Notices</a>
+          <a href="officials.html">Who&rsquo;s Who</a>
+          <a href="contact.html">Contact</a>
+        </div>
+        <div class="footer-col">
+          <h4>External Portals</h4>
+          <a href="https://raipur.gov.in" target="_blank" rel="noopener">District Raipur</a>
+          <a href="https://cgstate.gov.in" target="_blank" rel="noopener">Chhattisgarh State</a>
+        </div>
+        <div class="footer-col">
+          <h4>Contact</h4>
+          <p>Collectorate, Naya Raipur<br />Chhattisgarh 492002</p>
+          <a href="tel:07712426024">0771-2426024</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        &copy; <span id="footer-year"></span> District Administration Raipur, Government of Chhattisgarh.
+      </div>
+    </div>
+  </footer>
+
+  <script src="../js/main.js"></script>
+  <script>
+  (function(){
+    var t=localStorage.getItem('portal_token');
+    var u=JSON.parse(localStorage.getItem('portal_user')||'null');
+    if(t&&u){var l=document.getElementById('nav-portal-login');if(l){l.textContent=u.role==='admin'?'Admin Panel':'My Dashboard';l.href=u.role==='admin'?'admin.html':'dashboard.html';}}
+  })();
+  </script>
+</body>
+</html>

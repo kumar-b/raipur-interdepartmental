@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Raipur Interdepartmental Portal</title>
+  <meta name="description" content="Official interdepartmental coordination portal for Raipur District, Chhattisgarh." />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/responsive.css" />
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="container">
+      <div class="header-top">
+        <div class="site-branding">
+          <img src="images/cg-logo.svg" alt="Government of Chhattisgarh Emblem" class="cg-logo" />
+          <div class="site-branding-text">
+            <span class="site-stamp">Government of Chhattisgarh &mdash; District Raipur</span>
+            <a href="index.html" class="site-title">Raipur Interdepartmental Portal</a>
+            <p class="site-tagline">Coordination &bull; Communication &bull; Administration</p>
+          </div>
+        </div>
+        <div class="header-meta">
+          <span id="live-date"></span><br />
+          Raipur, Chhattisgarh 492001<br />
+          <a href="https://raipur.gov.in" target="_blank" rel="noopener" style="font-size:0.68rem;">raipur.gov.in &rarr;</a>
+        </div>
+      </div>
+
+      <nav class="site-nav" aria-label="Main navigation">
+        <button class="nav-toggle" aria-expanded="false" aria-controls="nav-list" id="nav-toggle">
+          &#9776; MENU
+        </button>
+        <ul class="nav-list" id="nav-list">
+          <li><a href="index.html" class="active">Home</a></li>
+          <li><a href="pages/departments.html">Departments</a></li>
+          <li><a href="pages/notices.html">Notices &amp; Circulars</a></li>
+          <li><a href="pages/officials.html">Who&rsquo;s Who</a></li>
+          <li><a href="pages/contact.html">Contact</a></li>
+          <li><a href="pages/login.html" id="nav-portal-login" style="background:var(--ink);color:var(--paper);">Portal Login</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main>
+    <div class="container">
+
+      <!-- Masthead -->
+      <div class="masthead">
+        <h1>District Raipur<br />Interdepartmental Portal</h1>
+        <p class="sub">Smart City &amp; Educational Hub of Chhattisgarh</p>
+        <p class="edition-line">
+          Collector &amp; DM: Dr. Gaurav Kumar Singh, IAS &nbsp;&bull;&nbsp;
+          Commissioner: Shri Mahadev Kavre, IAS &nbsp;&bull;&nbsp;
+          SSP: Shri Lal Umed Singh, IPS
+        </p>
+      </div>
+
+      <hr class="rule-double" />
+
+      <!-- Latest Notices -->
+      <section class="home-section">
+        <div class="section-header">
+          <h2>Latest Notices &amp; Circulars</h2>
+          <a href="pages/notices.html">View all &rarr;</a>
+        </div>
+        <hr class="rule" />
+        <div id="latest-notices">
+          <!-- Populated by JS -->
+          <div class="notice-card">
+            <div class="notice-date"><span class="skeleton" style="width:60px;height:12px;"></span></div>
+            <div><span class="skeleton" style="width:80%;height:14px;display:block;margin-bottom:6px;"></span><span class="skeleton" style="width:50%;height:10px;display:block;"></span></div>
+          </div>
+        </div>
+      </section>
+
+      <hr class="rule-double" />
+
+      <!-- Quick Department Links -->
+      <section class="home-section">
+        <div class="section-header">
+          <h2>Key Departments</h2>
+          <a href="pages/departments.html">All departments &rarr;</a>
+        </div>
+        <hr class="rule" />
+        <div class="dept-grid" id="home-depts">
+          <!-- Populated by JS -->
+        </div>
+      </section>
+
+      <hr class="rule-double" />
+
+      <!-- Who's Who strip -->
+      <section class="home-section">
+        <div class="section-header">
+          <h2>Senior Officials</h2>
+          <a href="pages/officials.html">Full directory &rarr;</a>
+        </div>
+        <hr class="rule" />
+        <div class="table-scroll">
+          <table class="officials-table" id="home-officials">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Designation</th>
+                <th>Division</th>
+                <th>Phone</th>
+              </tr>
+            </thead>
+            <tbody><!-- Populated by JS --></tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-col">
+          <h4>Quick Links</h4>
+          <a href="index.html">Home</a>
+          <a href="pages/departments.html">Departments</a>
+          <a href="pages/notices.html">Notices</a>
+          <a href="pages/officials.html">Who&rsquo;s Who</a>
+          <a href="pages/contact.html">Contact</a>
+        </div>
+        <div class="footer-col">
+          <h4>External Portals</h4>
+          <a href="https://raipur.gov.in" target="_blank" rel="noopener">District Raipur</a>
+          <a href="https://cgstate.gov.in" target="_blank" rel="noopener">Chhattisgarh State</a>
+          <a href="https://revenue.cg.nic.in" target="_blank" rel="noopener">Revenue Dept.</a>
+          <a href="https://pwd.cg.nic.in" target="_blank" rel="noopener">Public Works Dept.</a>
+        </div>
+        <div class="footer-col">
+          <h4>Contact</h4>
+          <p>Collectorate, Naya Raipur<br />Chhattisgarh 492002</p>
+          <a href="tel:07712426024">0771-2426024</a>
+          <a href="mailto:collector-rpr.cg@gov.in">collector-rpr.cg@gov.in</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        &copy; <span id="footer-year"></span> District Administration Raipur, Government of Chhattisgarh.
+        Content on this portal is for informational and coordination purposes.
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+  <script>
+  (function(){
+    var t=localStorage.getItem('portal_token');
+    var u=JSON.parse(localStorage.getItem('portal_user')||'null');
+    if(t&&u){
+      var l=document.getElementById('nav-portal-login');
+      if(l){l.textContent=u.role==='admin'?'Admin Panel':'My Dashboard';l.href=u.role==='admin'?'pages/admin.html':'pages/dashboard.html';}
+    }
+  })();
+  </script>
+</body>
+</html>

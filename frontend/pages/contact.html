@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact — Raipur Interdepartmental Portal</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/responsive.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container">
+      <div class="header-top">
+        <div class="site-branding">
+          <img src="../images/cg-logo.svg" alt="Government of Chhattisgarh Emblem" class="cg-logo" />
+          <div class="site-branding-text">
+            <span class="site-stamp">Government of Chhattisgarh &mdash; District Raipur</span>
+            <a href="../index.html" class="site-title">Raipur Interdepartmental Portal</a>
+            <p class="site-tagline">Coordination &bull; Communication &bull; Administration</p>
+          </div>
+        </div>
+        <div class="header-meta">
+          <span id="live-date"></span><br />
+          Raipur, Chhattisgarh 492001
+        </div>
+      </div>
+      <nav class="site-nav" aria-label="Main navigation">
+        <button class="nav-toggle" aria-expanded="false" aria-controls="nav-list" id="nav-toggle">&#9776; MENU</button>
+        <ul class="nav-list" id="nav-list">
+          <li><a href="../index.html">Home</a></li>
+          <li><a href="departments.html">Departments</a></li>
+          <li><a href="notices.html">Notices &amp; Circulars</a></li>
+          <li><a href="officials.html">Who&rsquo;s Who</a></li>
+          <li><a href="contact.html" class="active">Contact</a></li>
+          <li><a href="login.html" id="nav-portal-login" style="background:var(--ink);color:var(--paper);">Portal Login</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+
+      <div class="page-header">
+        <span class="eyebrow">District Raipur &rsaquo; Communication</span>
+        <h1>Contact Us</h1>
+        <p class="text-muted text-small">Submit an interdepartmental query or coordination request. Responses within 3 working days.</p>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items:start;" id="contact-layout">
+
+        <!-- Form -->
+        <div>
+          <form class="contact-form" id="contact-form" novalidate>
+
+            <div class="form-group">
+              <label for="name">Full Name *</label>
+              <input type="text" id="name" name="name" placeholder="e.g. Shri Ramesh Kumar" required />
+            </div>
+
+            <div class="form-group">
+              <label for="email">Official Email *</label>
+              <input type="email" id="email" name="email" placeholder="name@dept.cg.gov.in" required />
+            </div>
+
+            <div class="form-group">
+              <label for="phone">Phone</label>
+              <input type="tel" id="phone" name="phone" placeholder="0771-XXXXXXX" />
+            </div>
+
+            <div class="form-group">
+              <label for="department">Your Department</label>
+              <select id="department" name="department">
+                <option value="">— Select Department —</option>
+                <option>Revenue Department</option>
+                <option>Panchayat and Rural Development</option>
+                <option>Health Department</option>
+                <option>Agriculture Department</option>
+                <option>Food Department</option>
+                <option>Education Department</option>
+                <option>Commerce and Industry</option>
+                <option>Mining Department</option>
+                <option>Home Department</option>
+                <option>Transport Department</option>
+                <option>Labour Department</option>
+                <option>Public Works Department</option>
+                <option>Social Welfare Department</option>
+                <option>Higher Education Department</option>
+                <option>Finance Department</option>
+                <option>Collectorate</option>
+                <option>Zilla Panchayat</option>
+                <option>Nagar Nigam</option>
+                <option>Police Department</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="subject">Subject *</label>
+              <input type="text" id="subject" name="subject" placeholder="Brief subject of your query" required />
+            </div>
+
+            <div class="form-group">
+              <label for="message">Message *</label>
+              <textarea id="message" name="message" placeholder="Describe your query or coordination request in detail..." required></textarea>
+            </div>
+
+            <button type="submit" class="btn">Submit Communication</button>
+
+            <div class="form-status" id="form-status"></div>
+          </form>
+        </div>
+
+        <!-- Info panel -->
+        <div>
+          <h2 style="font-size:0.75rem; letter-spacing:0.2em; text-transform:uppercase; color:var(--muted); margin-bottom:1rem;">Key Contacts</h2>
+          <hr class="rule" />
+
+          <div style="margin-bottom:1.5rem;">
+            <p class="text-upper text-small" style="color:var(--accent);">Collectorate</p>
+            <p><strong>Dr. Gaurav Kumar Singh, IAS</strong><br />
+            Collector &amp; District Magistrate<br />
+            <a href="tel:07712426024">0771-2426024</a><br />
+            <a href="mailto:collector-rpr.cg@gov.in">collector-rpr.cg@gov.in</a></p>
+          </div>
+
+          <hr class="rule" />
+
+          <div style="margin-bottom:1.5rem;">
+            <p class="text-upper text-small" style="color:var(--accent);">Commissioner&rsquo;s Office</p>
+            <p><strong>Shri Mahadev Kavre, IAS</strong><br />
+            Commissioner, Raipur Division<br />
+            <a href="tel:07712536660">0771-2536660</a><br />
+            <a href="mailto:dcr.raipur@gmail.com">dcr.raipur@gmail.com</a></p>
+          </div>
+
+          <hr class="rule" />
+
+          <div style="margin-bottom:1.5rem;">
+            <p class="text-upper text-small" style="color:var(--accent);">Police Department</p>
+            <p><strong>Shri Lal Umed Singh, IPS</strong><br />
+            Senior Superintendent of Police<br />
+            <a href="tel:07712285004">0771-2285004</a><br />
+            <a href="mailto:raipurpolice@gmail.com">raipurpolice@gmail.com</a></p>
+          </div>
+
+          <hr class="rule" />
+
+          <div style="margin-bottom:1.5rem;">
+            <p class="text-upper text-small" style="color:var(--accent);">Nagar Nigam</p>
+            <p><strong>Shri Vishwadeep, IAS</strong><br />
+            Commissioner, Municipal Corporation<br />
+            <a href="tel:07712531014">0771-2531014</a><br />
+            <a href="mailto:nigam.raipur.cg@nic.in">nigam.raipur.cg@nic.in</a></p>
+          </div>
+
+          <hr class="rule" />
+
+          <p class="text-muted text-small">
+            For the complete telephone directory visit<br />
+            <a href="https://raipur.gov.in/en/directory/" target="_blank" rel="noopener">raipur.gov.in/en/directory/ &rarr;</a>
+          </p>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-col">
+          <h4>Quick Links</h4>
+          <a href="../index.html">Home</a>
+          <a href="departments.html">Departments</a>
+          <a href="notices.html">Notices</a>
+          <a href="officials.html">Who&rsquo;s Who</a>
+          <a href="contact.html">Contact</a>
+        </div>
+        <div class="footer-col">
+          <h4>External Portals</h4>
+          <a href="https://raipur.gov.in" target="_blank" rel="noopener">District Raipur</a>
+          <a href="https://cgstate.gov.in" target="_blank" rel="noopener">Chhattisgarh State</a>
+        </div>
+        <div class="footer-col">
+          <h4>Contact</h4>
+          <p>Collectorate, Naya Raipur<br />Chhattisgarh 492002</p>
+          <a href="tel:07712426024">0771-2426024</a>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        &copy; <span id="footer-year"></span> District Administration Raipur, Government of Chhattisgarh.
+      </div>
+    </div>
+  </footer>
+
+  <script src="../js/main.js"></script>
+  <script>
+  (function(){
+    var t=localStorage.getItem('portal_token');
+    var u=JSON.parse(localStorage.getItem('portal_user')||'null');
+    if(t&&u){var l=document.getElementById('nav-portal-login');if(l){l.textContent=u.role==='admin'?'Admin Panel':'My Dashboard';l.href=u.role==='admin'?'admin.html':'dashboard.html';}}
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+/* =====================================================
+   RESPONSIVE STYLES
+   Mobile-first breakpoints
+   ===================================================== */
+
+/* ── Tablet: ≤ 768px ── */
+@media (max-width: 768px) {
+  :root { --max-width: 100%; }
+
+  h1 { font-size: 1.6rem; }
+
+  /* Header */
+  .header-top { flex-direction: column; gap: 0.5rem; }
+  .header-meta { text-align: left; }
+
+  /* Navigation */
+  .nav-toggle { display: block; }
+
+  .nav-list {
+    display: none;
+    flex-direction: column;
+  }
+  .nav-list.open { display: flex; }
+
+  .nav-list li a {
+    border-right: none;
+    border-bottom: 1px solid var(--rule);
+    padding: 0.8rem 1rem;
+  }
+  .nav-list li:first-child a { border-left: none; border-top: 1px solid var(--rule); }
+
+  /* Notice cards */
+  .notice-card {
+    grid-template-columns: 1fr;
+    gap: 0.3rem;
+  }
+  .notice-date { font-size: 0.68rem; }
+
+  /* Officials table: scroll horizontally */
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .officials-table { min-width: 520px; }
+
+  /* Footer */
+  .footer-inner {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  /* Masthead */
+  .masthead { padding: 1.5rem 1rem; }
+  .masthead h1 { font-size: 1.6rem; }
+
+  /* Department grid */
+  .dept-grid { grid-template-columns: 1fr 1fr; }
+}
+
+/* ── Mobile: ≤ 480px ── */
+@media (max-width: 480px) {
+  body { font-size: 15px; }
+
+  .container { padding: 0 1rem; }
+
+  h1 { font-size: 1.4rem; }
+
+  .site-title { font-size: 1.35rem; }
+
+  /* Stack department grid to single column */
+  .dept-grid { grid-template-columns: 1fr; }
+
+  /* Filter bar wraps fully */
+  .filter-bar { flex-direction: row; }
+
+  /* Contact form full width */
+  .contact-form { max-width: 100%; }
+
+  /* Masthead tighter */
+  .masthead { padding: 1.2rem 0.8rem; }
+  .masthead h1 { font-size: 1.3rem; }
+  .masthead::before { letter-spacing: 0.3em; }
+
+  /* Form inputs full size */
+  .form-group input,
+  .form-group select,
+  .form-group textarea { font-size: 16px; } /* prevents iOS zoom */
+
+  /* Page header */
+  .page-header h1 { font-size: 1.4rem; }
+
+  main { padding: 1.5rem 0 3rem; }
+
+  /* Stat cards stack */
+  .stat-cards { grid-template-columns: 1fr; }
+
+  /* Inbox row stack */
+  .inbox-row { grid-template-columns: 1fr; gap: 0.4rem; }
+
+  /* Dash tabs wrap */
+  .dash-tab { padding: 0.5rem 0.8rem; font-size: 0.68rem; }
+
+  /* Modal full width */
+  .modal-box { padding: 1.2rem; }
+
+  /* Compose checkboxes */
+  .dept-checkbox-grid { grid-template-columns: 1fr; }
+}

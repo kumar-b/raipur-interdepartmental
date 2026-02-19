@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Raipur Interdepartmental Portal</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/responsive.css" />
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container">
+      <div class="header-top">
+        <div class="site-branding">
+          <img src="../images/cg-logo.svg" alt="Government of Chhattisgarh Emblem" class="cg-logo" />
+          <div class="site-branding-text">
+            <span class="site-stamp">Government of Chhattisgarh &mdash; District Raipur</span>
+            <a href="../index.html" class="site-title">Raipur Interdepartmental Portal</a>
+            <p class="site-tagline">Coordination &bull; Communication &bull; Administration</p>
+          </div>
+        </div>
+        <div class="header-meta" id="header-meta"></div>
+      </div>
+      <nav class="site-nav" aria-label="Main navigation">
+        <button class="nav-toggle" aria-expanded="false" aria-controls="nav-list" id="nav-toggle">&#9776; MENU</button>
+        <ul class="nav-list" id="nav-list">
+          <li><a href="../index.html">Home</a></li>
+          <li><a href="dashboard.html" class="active">Dashboard</a></li>
+          <li><a href="notice-compose.html">New Notice</a></li>
+          <li><a href="#" id="nav-logout" onclick="localStorage.removeItem('portal_token');localStorage.removeItem('portal_user');window.location.href='login.html';return false;">Logout</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container">
+
+      <div class="dash-actionbar">
+        <div>
+          <h1 style="font-size:1.3rem;" id="dash-title">Department Dashboard</h1>
+          <span class="dash-username" id="dash-subtitle"></span>
+        </div>
+        <a href="notice-compose.html" class="btn btn-sm">+ New Notice</a>
+      </div>
+
+      <!-- Tabs -->
+      <div class="dash-tabs">
+        <button class="dash-tab active" data-tab="inbox">
+          Inbox <span id="inbox-pending-count" style="font-size:0.6rem; color:var(--accent-3);"></span>
+        </button>
+        <button class="dash-tab" data-tab="outbox">Outbox</button>
+      </div>
+
+      <!-- INBOX panel -->
+      <div class="dash-panel active" id="panel-inbox">
+        <div class="filter-bar" id="inbox-filter">
+          <button class="filter-btn active" data-status="all">All</button>
+          <button class="filter-btn" data-status="Pending">Pending</button>
+          <button class="filter-btn" data-status="Noted">Noted</button>
+          <button class="filter-btn" data-status="Completed">Completed</button>
+        </div>
+        <div id="inbox-list"></div>
+      </div>
+
+      <!-- OUTBOX panel -->
+      <div class="dash-panel" id="panel-outbox">
+        <div id="outbox-list"></div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Notice Detail Modal -->
+  <div class="modal-overlay" id="notice-modal">
+    <div class="modal-box" id="notice-modal-content">
+      <button class="modal-close" id="notice-modal-close">&times;</button>
+    </div>
+  </div>
+
+  <!-- Status Action Modal (Noted / Completed) -->
+  <div class="modal-overlay" id="action-modal">
+    <div class="modal-box">
+      <button class="modal-close" id="action-modal-close">&times;</button>
+      <h2 style="font-size:1rem; margin-bottom:1.2rem;" id="action-modal-title">Update Status</h2>
+      <form id="action-form" enctype="multipart/form-data">
+        <input type="hidden" id="action-notice-id" />
+        <input type="hidden" id="action-status-value" />
+
+        <div class="form-group">
+          <label for="action-remark">Remark <span style="color:var(--accent-3);">*</span></label>
+          <textarea id="action-remark" name="remark" style="min-height:100px;" placeholder="Enter your remark or response..." required></textarea>
+        </div>
+
+        <div class="form-group" id="reply-upload-group">
+          <label>Attach Reply Letter <span class="text-muted">(optional)</span></label>
+          <div class="file-input-wrap">
+            <input type="file" id="action-reply-file" name="reply" accept=".pdf,.jpg,.jpeg,.png,.webp" />
+            <p class="text-muted" style="font-size:0.68rem; margin:0.3rem 0 0;">PDF, JPG, PNG or WebP &mdash; max 10 MB</p>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:0.8rem; flex-wrap:wrap;">
+          <button type="submit" class="btn" id="action-submit-btn">Submit</button>
+          <button type="button" class="btn btn-outline" id="action-modal-close-2">Cancel</button>
+        </div>
+
+        <div class="form-status" id="action-status"></div>
+      </form>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-bottom">
+        &copy; <span id="footer-year"></span> District Administration Raipur, Government of Chhattisgarh.
+      </div>
+    </div>
+  </footer>
+
+  <script src="../js/main.js"></script>
+  <script src="../js/dashboard.js"></script>
+</body>
+</html>
