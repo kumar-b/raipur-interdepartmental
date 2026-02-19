@@ -14,7 +14,7 @@ Departments can issue notices to each other, track action statuses, and upload r
 | Backend | Node.js + Express |
 | Database | SQLite via `better-sqlite3` |
 | Auth | JWT (JSON Web Tokens) + bcryptjs |
-| File uploads | Multer |
+| File uploads | Multer + AWS S3 (optional) / Local disk (fallback) |
 | Tests | Jest + Supertest |
 
 ---
@@ -49,9 +49,10 @@ raipur-interdepartmental/
 │   │   ├── db.js                   # SQLite connection + schema
 │   │   ├── seed.js                 # Seed script
 │   │   └── portal.db               # SQLite database file
+│   ├── storage.js                  # File storage (S3 or local disk)
 │   ├── middleware/
 │   │   ├── auth.js                 # requireAuth / requireAdmin
-│   │   └── upload.js               # Multer file upload config
+│   │   └── upload.js               # Multer memoryStorage config
 │   ├── routes/
 │   │   ├── auth.js                 # Login, /me, change-password
 │   │   ├── departments.js          # Departments CRUD
@@ -68,6 +69,7 @@ raipur-interdepartmental/
 │   │   ├── departments.test.js
 │   │   ├── notices.test.js
 │   │   ├── users.test.js
+│   │   ├── storage.test.js         # Local disk + S3 mode tests
 │   │   └── testDb.js               # In-memory test database
 │   └── package.json
 ├── .gitignore
@@ -102,12 +104,48 @@ npm run dev
 
 ### Environment Variables
 
-Create a `.env` file inside `backend/`:
+Copy `backend/.env.example` to `backend/.env` and fill in the values:
 
+```bash
+cp backend/.env.example backend/.env
 ```
-JWT_SECRET=your-secret-key-at-least-32-characters
-PORT=3000
+
+| Variable | Required | Description |
+|---|---|---|
+| `JWT_SECRET` | Yes | Secret for signing JWTs — min 32 characters |
+| `PORT` | No | Server port (default: `3000`) |
+| `AWS_ACCESS_KEY_ID` | S3 only | IAM access key with `s3:PutObject` permission |
+| `AWS_SECRET_ACCESS_KEY` | S3 only | IAM secret key |
+| `AWS_S3_BUCKET` | S3 only | S3 bucket name (must already exist) |
+| `AWS_REGION` | S3 only | Bucket region (default: `us-east-1`) |
+
+---
+
+---
+
+## File Storage
+
+File uploads (notice attachments and department reply files) support two storage backends, selected automatically based on environment variables:
+
+### AWS S3 (recommended for production)
+Set all three AWS variables in `.env`:
 ```
+AWS_ACCESS_KEY_ID=your_key
+AWS_SECRET_ACCESS_KEY=your_secret
+AWS_S3_BUCKET=your_bucket
+AWS_REGION=ap-south-1
+```
+Files are uploaded to `s3://<bucket>/uploads/` and stored as public S3 URLs in the database. The local `/uploads` folder is not used.
+
+### Local Disk (default fallback)
+If any AWS variable is missing, files are saved to `backend/uploads/` and served via Express static at `/uploads/<filename>`. Suitable for development and single-server deployments.
+
+| | Local Disk | AWS S3 |
+|---|---|---|
+| Config needed | None | 3 env vars |
+| Survives redeploy | Only if folder is persisted | Yes |
+| Scales | Single server only | Yes |
+| Cost | Free | Pay per GB |
 
 ---
 
@@ -183,12 +221,14 @@ npm test
 
 ### Test Coverage
 
-| File | Routes Tested | Tests |
-|------|--------------|-------|
+| File | What is tested | Tests |
+|------|---------------|-------|
 | `auth.test.js` | `/api/auth/login`, `/me`, `/change-password` | 13 |
-| `departments.test.js` | `/api/departments` | 8 |
-| `notices.test.js` | `/api/portal/notices/*` | 25 |
+| `departments.test.js` | `GET /api/departments`, `POST /api/departments` | 16 |
+| `notices.test.js` | `/api/portal/notices/*` including monthly-stats | 31 |
 | `users.test.js` | `/api/portal/users/*` | 18 |
+| `storage.test.js` | Local disk mode + S3 mode (mocked SDK) | 13 |
+| **Total** | | **109** |
 
 ---
 

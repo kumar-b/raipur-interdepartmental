@@ -11,11 +11,19 @@ const authRouter         = require('./routes/auth');
 const noticesAuthRouter  = require('./routes/notices-auth');
 const usersRouter        = require('./routes/users');
 
+const { isS3 } = require('./storage');
+
 const app = express();
 
 app.use(cors({ exposedHeaders: ['Authorization'] }));
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Serve uploaded files from local disk only when not using S3.
+// In S3 mode, files are accessed directly via their S3 URL.
+if (!isS3) {
+  app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+}
+
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 // Public API

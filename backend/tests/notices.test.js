@@ -4,6 +4,10 @@
  */
 
 jest.mock('../database/db', () => require('./testDb').createDb());
+jest.mock('../storage', () => ({
+  saveFile: jest.fn().mockResolvedValue('/uploads/mock-test-file.pdf'),
+  isS3:     false,
+}));
 
 process.env.JWT_SECRET =
   process.env.JWT_SECRET || 'test-jwt-secret-for-jest-at-least-32-characters-long-xxx';

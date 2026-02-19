@@ -1,7 +1,8 @@
 const express = require('express');
 const db      = require('../database/db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
-const upload  = require('../middleware/upload');
+const upload   = require('../middleware/upload');
+const { saveFile } = require('../storage');
 
 const router = express.Router();
 
@@ -152,7 +153,7 @@ router.get('/notices/outbox', requireAuth, (req, res) => {
 });
 
 // ── POST /api/portal/notices  (create) ────────────────
-router.post('/notices', requireAuth, upload.single('attachment'), (req, res) => {
+router.post('/notices', requireAuth, upload.single('attachment'), async (req, res) => {
   if (req.user.role === 'admin') {
     return res.status(403).json({ error: 'Admin cannot create notices. Use a department login.' });
   }
@@ -186,7 +187,7 @@ router.post('/notices', requireAuth, upload.single('attachment'), (req, res) => 
     }
   }
 
-  const attachment_path = req.file ? `/uploads/${req.file.filename}` : null;
+  const attachment_path = req.file ? await saveFile(req.file) : null;
   const attachment_name = req.file ? req.file.originalname : null;
 
   // Insert notice
@@ -250,7 +251,7 @@ router.get('/notices/:id', requireAuth, (req, res) => {
 });
 
 // ── PATCH /api/portal/notices/:id/status  (update) ───
-router.patch('/notices/:id/status', requireAuth, upload.single('reply'), (req, res) => {
+router.patch('/notices/:id/status', requireAuth, upload.single('reply'), async (req, res) => {
   if (req.user.role === 'admin') {
     return res.status(403).json({ error: 'Admin cannot update notice status.' });
   }
@@ -275,7 +276,7 @@ router.patch('/notices/:id/status', requireAuth, upload.single('reply'), (req, r
     return res.status(400).json({ error: 'This notice has already been marked as completed.' });
   }
 
-  const reply_path = req.file ? `/uploads/${req.file.filename}` : null;
+  const reply_path = req.file ? await saveFile(req.file) : null;
   const reply_name = req.file ? req.file.originalname : null;
 
   db.prepare(`
