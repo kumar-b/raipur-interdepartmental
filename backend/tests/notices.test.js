@@ -5,8 +5,11 @@
 
 jest.mock('../database/db', () => require('./testDb').createDb());
 jest.mock('../storage', () => ({
-  saveFile: jest.fn().mockResolvedValue('/uploads/mock-test-file.pdf'),
-  isS3:     false,
+  saveFile:   jest.fn().mockResolvedValue('/uploads/mock-test-file.pdf'),
+  // deleteFile is called when closing a notice — mock it so no real filesystem
+  // operations happen in tests.
+  deleteFile: jest.fn().mockResolvedValue(undefined),
+  isS3:       false,
 }));
 
 process.env.JWT_SECRET =
@@ -504,6 +507,366 @@ describe('GET /api/portal/notices/monthly-stats', () => {
 
   test('unauthenticated request returns 401', async () => {
     const res = await request(app).get('/api/portal/notices/monthly-stats');
+    expect(res.status).toBe(401);
+  });
+});
+
+// ── DELETE /api/portal/notices/:id  (close a notice) ─────────────────────────
+// "Closing" permanently removes a notice, deletes its files, and archives stats.
+// Admin: can force-close ANY notice regardless of completion status.
+// Dept:  can only close their OWN notices when ALL targets have completed.
+describe('DELETE /api/portal/notices/:id — close notice', () => {
+  // A notice that stays Pending — used to verify dept-user 400 and admin override.
+  let pendingNoticeId;
+  // A notice completed by all targets — used for archive-stats verification.
+  let completedNoticeId;
+
+  beforeAll(async () => {
+    // Create a Pending notice (health dept is the target, not acknowledged)
+    const pendingRes = await request(app)
+      .post('/api/portal/notices')
+      .set('Authorization', `Bearer ${revenueToken}`)
+      .field('title',           'Pending Notice For Close Test')
+      .field('body',            'This notice will remain pending throughout these tests.')
+      .field('priority',        'Normal')
+      .field('deadline',        '2026-12-31')
+      .field('target_dept_ids', '2'); // Health — left Pending intentionally
+    pendingNoticeId = pendingRes.body.noticeId;
+
+    // Create + fully complete a notice for the stats-archive tests
+    const compRes = await request(app)
+      .post('/api/portal/notices')
+      .set('Authorization', `Bearer ${revenueToken}`)
+      .field('title',           'Completed Notice For Stats Archive Test')
+      .field('body',            'All targets will complete this so we can verify stat archiving.')
+      .field('priority',        'Low')
+      .field('deadline',        '2026-12-31')
+      .field('target_dept_ids', '2');
+    completedNoticeId = compRes.body.noticeId;
+
+    await request(app)
+      .patch(`/api/portal/notices/${completedNoticeId}/status`)
+      .set('Authorization', `Bearer ${healthToken}`)
+      .field('status', 'Completed')
+      .field('remark', 'Done — used to verify stats archiving after close.');
+  });
+
+  // ── Basic close behaviour ────────────────────────────────────────────────
+
+  test('admin closes a fully completed notice — returns 200 and notice is gone (404)', async () => {
+    // Create + complete a fresh notice so we don't disturb other tests.
+    const createRes = await request(app)
+      .post('/api/portal/notices')
+      .set('Authorization', `Bearer ${revenueToken}`)
+      .field('title',           'Admin Closable Completed Notice')
+      .field('body',            'Will be closed by admin after completion.')
+      .field('priority',        'Low')
+      .field('deadline',        '2026-12-31')
+      .field('target_dept_ids', '2');
+    const nid = createRes.body.noticeId;
+
+    await request(app)
+      .patch(`/api/portal/notices/${nid}/status`)
+      .set('Authorization', `Bearer ${healthToken}`)
+      .field('status', 'Completed')
+      .field('remark', 'Task done.');
+
+    const res = await request(app)
+      .delete(`/api/portal/notices/${nid}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toMatch(/closed/i);
+
+    // Verify the record is actually gone.
+    const check = await request(app)
+      .get(`/api/portal/notices/${nid}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(check.status).toBe(404);
+  });
+
+  test('dept user (revenue) closes their own fully completed notice — returns 200', async () => {
+    const createRes = await request(app)
+      .post('/api/portal/notices')
+      .set('Authorization', `Bearer ${revenueToken}`)
+      .field('title',           'Revenue Self-Close Notice')
+      .field('body',            'Created and closed by revenue after health completes.')
+      .field('priority',        'Low')
+      .field('deadline',        '2026-12-31')
+      .field('target_dept_ids', '2');
+    const nid = createRes.body.noticeId;
+
+    await request(app)
+      .patch(`/api/portal/notices/${nid}/status`)
+      .set('Authorization', `Bearer ${healthToken}`)
+      .field('status', 'Completed')
+      .field('remark', 'Done by health.');
+
+    const res = await request(app)
+      .delete(`/api/portal/notices/${nid}`)
+      .set('Authorization', `Bearer ${revenueToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  // ── Dept-user restrictions ────────────────────────────────────────────────
+
+  test('dept user cannot close a notice created by another dept — returns 403', async () => {
+    // Revenue creates the notice; health (a target) tries to close it.
+    const createRes = await request(app)
+      .post('/api/portal/notices')
+      .set('Authorization', `Bearer ${revenueToken}`)
+      .field('title',           'Revenue Notice — Health Cannot Close')
+      .field('body',            'Only revenue or admin may close this.')
+      .field('priority',        'Low')
+      .field('deadline',        '2026-12-31')
+      .field('target_dept_ids', '2');
+
+    const res = await request(app)
+      .delete(`/api/portal/notices/${createRes.body.noticeId}`)
+      .set('Authorization', `Bearer ${healthToken}`);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error).toMatch(/only close notices created by your department/i);
+  });
+
+  test('dept user cannot close their own notice when targets have not completed — returns 400', async () => {
+    // pendingNoticeId is owned by revenue but health has not acknowledged it.
+    const res = await request(app)
+      .delete(`/api/portal/notices/${pendingNoticeId}`)
+      .set('Authorization', `Bearer ${revenueToken}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/not all/i);
+  });
+
+  // ── Admin force-close (pending/incomplete notices) ────────────────────────
+
+  test('admin can force-close a Pending/incomplete notice — returns 200', async () => {
+    // Create a fresh pending notice specifically for this test.
+    const createRes = await request(app)
+      .post('/api/portal/notices')
+      .set('Authorization', `Bearer ${revenueToken}`)
+      .field('title',           'Admin Force-Close Pending Notice')
+      .field('body',            'Admin will close this even though health has not responded.')
+      .field('priority',        'High')
+      .field('deadline',        '2026-01-01') // already overdue
+      .field('target_dept_ids', '2');
+    const nid = createRes.body.noticeId;
+
+    // Health has NOT acknowledged — notice is still Pending.
+    const res = await request(app)
+      .delete(`/api/portal/notices/${nid}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    // Confirm the notice is gone.
+    const check = await request(app)
+      .get(`/api/portal/notices/${nid}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(check.status).toBe(404);
+  });
+
+  test('admin force-closes a partially completed notice (some Completed, some Pending) — returns 200', async () => {
+    // This is the key scenario: multiple target departments where SOME have
+    // completed the notice and others have not yet responded.
+    // The test database seeds three departments:
+    //   id=1 (Revenue)  — the sender, not a target
+    //   id=2 (Health)   — seeded user exists → will mark Completed
+    //   id=3 (PWD)      — no seeded user   → stays Pending
+    // Revenue creates a notice targeting BOTH Health and PWD.
+    const createRes = await request(app)
+      .post('/api/portal/notices')
+      .set('Authorization', `Bearer ${revenueToken}`)
+      .field('title',           'Partially Completed — Admin Force-Close Test')
+      .field('body',            'Health will complete; PWD stays Pending. Admin must still be able to close.')
+      .field('priority',        'Normal')
+      .field('deadline',        '2026-12-31')
+      .field('target_dept_ids', '2')   // Health — will be completed below
+      .field('target_dept_ids', '3');  // PWD   — no seeded user, remains Pending
+
+    expect(createRes.status).toBe(201);
+    const nid = createRes.body.noticeId;
+
+    // Health marks the notice Completed.
+    await request(app)
+      .patch(`/api/portal/notices/${nid}/status`)
+      .set('Authorization', `Bearer ${healthToken}`)
+      .field('status', 'Completed')
+      .field('remark', 'Health dept done. PWD still pending.');
+
+    // Confirm mixed state in DB: one Completed row, one Pending row.
+    const db = require('../database/db');
+    const rows = db.prepare(
+      'SELECT dept_id, status FROM notice_status WHERE notice_id = ? ORDER BY dept_id'
+    ).all(nid);
+    expect(rows.some(r => r.status === 'Completed')).toBe(true); // Health completed
+    expect(rows.some(r => r.status === 'Pending')).toBe(true);   // PWD still pending
+
+    // Admin closes the partially complete notice — must succeed despite PWD being Pending.
+    const res = await request(app)
+      .delete(`/api/portal/notices/${nid}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    // Notice must be fully removed from the database.
+    const check = await request(app)
+      .get(`/api/portal/notices/${nid}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(check.status).toBe(404);
+  });
+
+  test('admin force-close of a Pending notice does not add 0-completed entries to stats', async () => {
+    // Record the total completed count before the force-close.
+    const before = await request(app)
+      .get('/api/portal/notices/monthly-stats')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const totalBefore = (before.body || []).reduce((s, e) => s + e.completed, 0);
+
+    // Create + force-close without any completions.
+    const createRes = await request(app)
+      .post('/api/portal/notices')
+      .set('Authorization', `Bearer ${revenueToken}`)
+      .field('title',           'Force-Close Zero Stats Notice')
+      .field('body',            'No one will complete this before admin closes it.')
+      .field('priority',        'Low')
+      .field('deadline',        '2026-12-31')
+      .field('target_dept_ids', '2');
+
+    await request(app)
+      .delete(`/api/portal/notices/${createRes.body.noticeId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    const after = await request(app)
+      .get('/api/portal/notices/monthly-stats')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const totalAfter = (after.body || []).reduce((s, e) => s + e.completed, 0);
+
+    // Closing a 0-completed notice must not inflate the stats.
+    expect(totalAfter).toBe(totalBefore);
+  });
+
+  // ── Statistics preservation after close ──────────────────────────────────
+
+  test('closing a fully completed notice preserves its stats in monthly-stats', async () => {
+    // completedNoticeId was created and completed in beforeAll.
+    // Record stats before closing.
+    const before = await request(app)
+      .get('/api/portal/notices/monthly-stats')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const totalBefore = (before.body || []).reduce((s, e) => s + e.completed, 0);
+    expect(totalBefore).toBeGreaterThanOrEqual(1); // at least the one we completed above
+
+    // Close the notice (admin close so we don't need to worry about status).
+    const closeRes = await request(app)
+      .delete(`/api/portal/notices/${completedNoticeId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(closeRes.status).toBe(200);
+
+    // Stats should still be >= totalBefore (the archive preserved the count).
+    const after = await request(app)
+      .get('/api/portal/notices/monthly-stats')
+      .set('Authorization', `Bearer ${adminToken}`);
+    const totalAfter = (after.body || []).reduce((s, e) => s + e.completed, 0);
+    expect(totalAfter).toBeGreaterThanOrEqual(totalBefore);
+  });
+
+  test('notice_archive_stats table has a row after closing a completed notice', async () => {
+    // Create + complete + close a notice and verify the archive row exists.
+    const createRes = await request(app)
+      .post('/api/portal/notices')
+      .set('Authorization', `Bearer ${revenueToken}`)
+      .field('title',           'Archive Row Verification Notice')
+      .field('body',            'Verify archive row exists after close.')
+      .field('priority',        'Normal')
+      .field('deadline',        '2026-12-31')
+      .field('target_dept_ids', '2');
+    const nid = createRes.body.noticeId;
+
+    await request(app)
+      .patch(`/api/portal/notices/${nid}/status`)
+      .set('Authorization', `Bearer ${healthToken}`)
+      .field('status', 'Completed')
+      .field('remark', 'Done for archive test.');
+
+    // Count archive rows before close.
+    const db = require('../database/db');
+    const countBefore = db.prepare('SELECT COUNT(*) AS c FROM notice_archive_stats').get().c;
+
+    await request(app)
+      .delete(`/api/portal/notices/${nid}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    // Archive table should have gained at least one row.
+    const countAfter = db.prepare('SELECT COUNT(*) AS c FROM notice_archive_stats').get().c;
+    expect(countAfter).toBeGreaterThan(countBefore);
+  });
+
+  // ── deleteFile mock verification ─────────────────────────────────────────
+
+  test('deleteFile is called for attachment and reply files when closing', async () => {
+    const { deleteFile } = require('../storage');
+    deleteFile.mockClear();
+
+    // Create a notice with a (mocked) attachment.
+    const createRes = await request(app)
+      .post('/api/portal/notices')
+      .set('Authorization', `Bearer ${revenueToken}`)
+      .field('title',           'Notice With Attachment For Close')
+      .field('body',            'Has an attachment that should be deleted on close.')
+      .field('priority',        'Normal')
+      .field('deadline',        '2026-12-31')
+      .field('target_dept_ids', '2')
+      .attach('attachment', Buffer.from('fake pdf'), { filename: 'doc.pdf', contentType: 'application/pdf' });
+
+    const nid = createRes.body.noticeId;
+
+    // Health responds with a (mocked) reply file.
+    await request(app)
+      .patch(`/api/portal/notices/${nid}/status`)
+      .set('Authorization', `Bearer ${healthToken}`)
+      .field('status', 'Completed')
+      .field('remark', 'Reply attached.')
+      .attach('reply', Buffer.from('fake reply pdf'), { filename: 'reply.pdf', contentType: 'application/pdf' });
+
+    deleteFile.mockClear(); // reset after save calls triggered by attach
+
+    // Close the notice.
+    await request(app)
+      .delete(`/api/portal/notices/${nid}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    // deleteFile should have been called at least once (attachment + reply = 2).
+    expect(deleteFile).toHaveBeenCalled();
+    expect(deleteFile.mock.calls.length).toBeGreaterThanOrEqual(1);
+
+    // Both call arguments should be the mock path returned by saveFile.
+    deleteFile.mock.calls.forEach(([calledPath]) => {
+      expect(typeof calledPath).toBe('string');
+      expect(calledPath.length).toBeGreaterThan(0);
+    });
+  });
+
+  // ── Edge cases ────────────────────────────────────────────────────────────
+
+  test('returns 404 for a non-existent notice id', async () => {
+    const res = await request(app)
+      .delete('/api/portal/notices/99999')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(404);
+  });
+
+  test('unauthenticated request returns 401', async () => {
+    const res = await request(app)
+      .delete(`/api/portal/notices/${pendingNoticeId}`);
+
     expect(res.status).toBe(401);
   });
 });

@@ -1,18 +1,42 @@
 /* =====================================================
    DEPARTMENT DASHBOARD — dashboard.js
+   Loaded on: pages/dashboard.html
+   Responsibilities:
+     - Auth guard (redirects non-dept users)
+     - Load and render the department's inbox (received notices)
+     - Load and render the department's outbox (sent notices)
+     - Open notice detail modal (marks notice as read)
+     - Open action modal to respond (Noted / Completed + optional reply file)
+     - Delete fully-completed notices
    ===================================================== */
 
-// ── Auth guard ────────────────────────────────────────
+// ── Auth guard — runs synchronously before any async work ────────────────────
+// If there is no token or user in localStorage, the session has expired or
+// the user has never logged in — redirect immediately to the login page.
 const token = localStorage.getItem('portal_token');
 const user  = JSON.parse(localStorage.getItem('portal_user') || 'null');
 
 if (!token || !user) {
   window.location.href = 'login.html';
 } else if (user.role === 'admin') {
+  // Admin users have their own dashboard — redirect them there.
   window.location.href = 'admin.html';
 }
 
-// ── Shared fetch with auth ────────────────────────────
+// ── Authenticated fetch wrapper ───────────────────────────────────────────────
+/**
+ * fetchAuth — wraps fetch with JWT authentication and centralised error handling.
+ *
+ * Behaviour:
+ *   - Attaches "Authorization: Bearer <token>" to every request.
+ *   - On 401 (expired/invalid token): clears storage and redirects to login.
+ *   - On any other non-2xx status: rejects with a descriptive error message.
+ *   - On network failure: rejects with a "server not running" message.
+ *
+ * @param {string}      url
+ * @param {RequestInit} options — standard fetch options
+ * @returns {Promise<Response>}
+ */
 async function fetchAuth(url, options = {}) {
   let res;
   try {
@@ -25,6 +49,7 @@ async function fetchAuth(url, options = {}) {
   }
 
   if (res.status === 401) {
+    // Token is invalid or has expired — force re-login.
     localStorage.removeItem('portal_token');
     localStorage.removeItem('portal_user');
     window.location.href = 'login.html';
@@ -32,6 +57,7 @@ async function fetchAuth(url, options = {}) {
   }
 
   if (!res.ok) {
+    // Parse the server's error message if available, else use a generic one.
     let errMsg = `Server error (HTTP ${res.status})`;
     try { const d = await res.json(); errMsg = d.error || errMsg; } catch (_) {}
     throw new Error(errMsg);
@@ -40,11 +66,15 @@ async function fetchAuth(url, options = {}) {
   return res;
 }
 
-// ── State ─────────────────────────────────────────────
+// ── Module-level state ────────────────────────────────────────────────────────
+// Caching the full inbox/outbox arrays allows instant client-side filtering
+// without additional network requests.
 let allInbox  = [];
 let allOutbox = [];
 
-// ── Logout: event delegation so it always works ───────
+// ── Logout handler — event delegation on document ────────────────────────────
+// Using delegation rather than direct binding means this works even if the
+// nav hasn't finished rendering when the script runs.
 document.addEventListener('click', function (e) {
   const target = e.target.closest('#nav-logout');
   if (!target) return;
@@ -54,11 +84,14 @@ document.addEventListener('click', function (e) {
   window.location.href = 'login.html';
 });
 
-// ── Init ──────────────────────────────────────────────
+// ── DOMContentLoaded — safe entry point for all DOM manipulation ──────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // Each setup step is wrapped independently so a single failure does not
+  // block the rest of the dashboard from initialising.
   try { if (typeof setFooterYear === 'function') setFooterYear(); } catch(e) { console.error(e); }
   try { if (typeof initNavToggle === 'function') initNavToggle(); } catch(e) { console.error(e); }
 
+  // Populate header date and logged-in user info.
   try {
     const metaEl = document.getElementById('header-meta');
     if (metaEl) metaEl.textContent = new Date().toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
@@ -68,12 +101,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (subEl) subEl.textContent = `Logged in as: ${user.username}`;
   } catch(e) { console.error('header setup:', e); }
 
-  // Tabs
+  // Tab switching — clicking a tab shows the matching panel.
   document.querySelectorAll('.dash-tab').forEach(tab => {
     tab.addEventListener('click', () => switchTab(tab.dataset.tab));
   });
 
-  // Inbox filter
+  // Inbox filter buttons — re-renders with the selected status filter applied.
   document.getElementById('inbox-filter').addEventListener('click', e => {
     const btn = e.target.closest('.filter-btn');
     if (!btn) return;
@@ -82,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderInbox(btn.dataset.status);
   });
 
-  // Modal close buttons
+  // Modal close handlers — backdrop click or × button closes the modal.
   document.getElementById('notice-modal').addEventListener('click', e => {
     if (e.target.id === 'notice-modal') closeModal('notice-modal');
   });
@@ -93,12 +126,16 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('action-modal-close').addEventListener('click', () => closeModal('action-modal'));
   document.getElementById('action-modal-close-2').addEventListener('click', () => closeModal('action-modal'));
 
-  // Action form submit
+  // Wire up the action form (Noted/Completed response).
   document.getElementById('action-form').addEventListener('submit', submitAction);
 
   loadDashboard();
 });
 
+/**
+ * switchTab — activates the selected tab and its corresponding panel.
+ * @param {string} tab — data-tab value ('inbox' or 'outbox')
+ */
 function switchTab(tab) {
   document.querySelectorAll('.dash-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.dash-panel').forEach(p => p.classList.remove('active'));
@@ -106,26 +143,43 @@ function switchTab(tab) {
   document.getElementById(`panel-${tab}`).classList.add('active');
 }
 
+/**
+ * loadDashboard — fetches inbox and outbox data in parallel.
+ */
 async function loadDashboard() {
   await Promise.all([loadInbox(), loadOutbox()]);
 }
 
-// ── INBOX ─────────────────────────────────────────────
+// ── INBOX ─────────────────────────────────────────────────────────────────────
+
+/**
+ * loadInbox — fetches notices addressed to this department and renders them.
+ * Also updates the pending count badge next to the Inbox tab label.
+ */
 async function loadInbox() {
   try {
     const res  = await fetchAuth(`${API}/portal/notices/inbox`);
     allInbox   = await res.json();
+
+    // Count Pending items to display in the tab badge.
     const pend = allInbox.filter(n => n.status === 'Pending').length;
     const ctr  = document.getElementById('inbox-pending-count');
     if (pend > 0) ctr.textContent = `(${pend} pending)`;
     renderInbox('all');
   } catch {
-    document.getElementById('inbox-list').innerHTML = '<p class="text-muted text-small">Could not load inbox.</p>';
+    document.getElementById('inbox-list').innerHTML =
+      '<p class="text-muted text-small">Could not load inbox.</p>';
   }
 }
 
+/**
+ * renderInbox — renders the inbox list filtered by the given status.
+ * Each row shows priority/status badges, overdue warning, unread indicator,
+ * and a "Respond" button for notices that are not yet completed.
+ * @param {string} filterStatus — 'all', 'Pending', 'Noted', or 'Completed'
+ */
 function renderInbox(filterStatus) {
-  const list = document.getElementById('inbox-list');
+  const list  = document.getElementById('inbox-list');
   const items = filterStatus === 'all' ? allInbox : allInbox.filter(n => n.status === filterStatus);
 
   if (!items.length) {
@@ -134,12 +188,15 @@ function renderInbox(filterStatus) {
   }
 
   list.innerHTML = items.map(n => {
+    // Overdue badge — shown when deadline has passed and notice is not completed.
     const overdueBadge = n.is_overdue
       ? `<span class="overdue-badge">OVERDUE &mdash; ${n.days_lapsed}d lapsed</span>`
       : '';
-    const unreadClass  = n.is_read === 0 ? 'unread' : '';
-    const unreadDot    = n.is_read === 0 ? '<span class="unread-dot"></span>' : '';
-    const actionBtn    = n.status !== 'Completed'
+    // Unread indicator — a dot and bolder row styling for unread notices.
+    const unreadClass = n.is_read === 0 ? 'unread' : '';
+    const unreadDot   = n.is_read === 0 ? '<span class="unread-dot"></span>' : '';
+    // Respond button — only shown while the notice is still actionable.
+    const actionBtn   = n.status !== 'Completed'
       ? `<button class="btn btn-sm btn-outline" data-action-id="${n.id}" data-action-title="${esc(n.title)}">Respond</button>`
       : '';
 
@@ -167,28 +224,42 @@ function renderInbox(filterStatus) {
       </div>`;
   }).join('');
 
-  // Notice detail click
+  // Attach click handlers after innerHTML is set (elements exist in DOM now).
   list.querySelectorAll('[data-notice-id]').forEach(el => {
-    el.addEventListener('click', e => { e.preventDefault(); openNoticeDetail(parseInt(el.dataset.noticeId)); });
+    el.addEventListener('click', e => {
+      e.preventDefault();
+      openNoticeDetail(parseInt(el.dataset.noticeId));
+    });
   });
 
-  // Action button click
   list.querySelectorAll('[data-action-id]').forEach(el => {
-    el.addEventListener('click', () => openActionModal(parseInt(el.dataset.actionId), el.dataset.actionTitle));
+    el.addEventListener('click', () =>
+      openActionModal(parseInt(el.dataset.actionId), el.dataset.actionTitle)
+    );
   });
 }
 
-// ── OUTBOX ────────────────────────────────────────────
+// ── OUTBOX ─────────────────────────────────────────────────────────────────────
+
+/**
+ * loadOutbox — fetches notices sent by this department and renders them.
+ */
 async function loadOutbox() {
   try {
-    const res  = await fetchAuth(`${API}/portal/notices/outbox`);
-    allOutbox  = await res.json();
+    const res = await fetchAuth(`${API}/portal/notices/outbox`);
+    allOutbox = await res.json();
     renderOutbox();
   } catch {
-    document.getElementById('outbox-list').innerHTML = '<p class="text-muted text-small">Could not load outbox.</p>';
+    document.getElementById('outbox-list').innerHTML =
+      '<p class="text-muted text-small">Could not load outbox.</p>';
   }
 }
 
+/**
+ * renderOutbox — renders the outbox list.
+ * Each row shows target department chips (coloured by acknowledgement status),
+ * pending/noted/completed counts, overdue badge, and an attachment link.
+ */
 function renderOutbox() {
   const list = document.getElementById('outbox-list');
   if (!allOutbox.length) {
@@ -200,6 +271,7 @@ function renderOutbox() {
     const overdueBadge = n.is_overdue
       ? `<span class="overdue-badge">OVERDUE &mdash; ${n.days_lapsed}d lapsed</span>`
       : '';
+    // Target chips — coloured by each dept's individual acknowledgement status.
     const targetsHtml = n.targets.map(t => {
       const statusClass = t.name === 'All Departments' ? '' : (t.status || '');
       return `<span class="target-chip ${statusClass}">${esc(t.name)}</span>`;
@@ -229,16 +301,29 @@ function renderOutbox() {
   }).join('');
 
   list.querySelectorAll('[data-notice-id]').forEach(el => {
-    el.addEventListener('click', e => { e.preventDefault(); openNoticeDetail(parseInt(el.dataset.noticeId)); });
+    el.addEventListener('click', e => {
+      e.preventDefault();
+      openNoticeDetail(parseInt(el.dataset.noticeId));
+    });
   });
 }
 
-// ── Notice Detail Modal ───────────────────────────────
+// ── Notice Detail Modal ────────────────────────────────────────────────────────
+
+/**
+ * openNoticeDetail — fetches full notice details (including per-dept statuses)
+ * and renders them in the notice-modal overlay.
+ * Opening the detail automatically marks the notice as read for this dept.
+ * Shows a "Delete Notice" button if the sender is viewing and all depts have completed.
+ * @param {number} id — notice ID
+ */
 async function openNoticeDetail(id) {
   const modal   = document.getElementById('notice-modal');
   const content = document.getElementById('notice-modal-content');
+
+  // Show loading state immediately so the modal appears without delay.
   content.innerHTML = `<button class="modal-close" id="notice-modal-close">&times;</button><p class="text-muted text-small">Loading&hellip;</p>`;
-  modal.style.display = 'block';
+  modal.style.display  = 'block';
   document.body.style.overflow = 'hidden';
 
   document.getElementById('notice-modal-close').addEventListener('click', () => closeModal('notice-modal'));
@@ -247,6 +332,7 @@ async function openNoticeDetail(id) {
     const res    = await fetchAuth(`${API}/portal/notices/${id}`);
     const notice = await res.json();
 
+    // Build the status table rows — one row per target department.
     const statusRows = notice.statuses.map(s => `
       <tr>
         <td>${esc(s.dept_name)}</td>
@@ -254,6 +340,13 @@ async function openNoticeDetail(id) {
         <td class="text-small">${s.remark ? esc(s.remark) : '<span class="text-muted">—</span>'}</td>
         <td>${s.reply_path ? `<a class="attachment-link" href="${s.reply_path}" target="_blank">Reply</a>` : '<span class="text-muted text-small">—</span>'}</td>
       </tr>`).join('');
+
+    // Determine if the "Close Notice" button should be shown.
+    // Dept users: only when they own the notice AND all targets have completed.
+    // (Admin close logic is handled separately in admin.js.)
+    const isOwnNotice  = notice.source_dept_id === user.dept_id;
+    const allCompleted = notice.statuses.length > 0 &&
+      notice.statuses.every(s => s.status === 'Completed');
 
     content.innerHTML = `
       <button class="modal-close" id="notice-modal-close-2">&times;</button>
@@ -276,65 +369,71 @@ async function openNoticeDetail(id) {
           <thead><tr><th>Department</th><th>Status</th><th>Remark</th><th>Reply</th></tr></thead>
           <tbody>${statusRows}</tbody>
         </table>
-      </div>`;
+      </div>
+      ${isOwnNotice && allCompleted ? `
+      <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--rule);display:flex;align-items:center;gap:0.8rem;flex-wrap:wrap;">
+        <button class="btn btn-sm" style="background:var(--accent-3);color:#fff;" onclick="closeNotice(${id})">Close Notice</button>
+        <span class="text-muted text-small">All targets completed &mdash; closing will permanently delete files and archive statistics.</span>
+      </div>` : ''}`;
 
     document.getElementById('notice-modal-close-2').addEventListener('click', () => closeModal('notice-modal'));
 
-    // Reload inbox to reflect is_read change
+    // Reload inbox in background so the unread dot disappears (is_read was set on the server).
     loadInbox();
   } catch {
     content.innerHTML += '<p class="text-muted text-small">Could not load notice details.</p>';
   }
 }
 
-// ── Action Modal (Noted / Completed) ─────────────────
+// ── Action Modal (Noted / Completed response) ──────────────────────────────────
+
+/**
+ * openActionModal — opens the response form for a specific notice.
+ * Pre-fills the notice ID hidden field and resets all form inputs.
+ * @param {number} noticeId — ID of the notice to respond to
+ * @param {string} title    — notice title displayed in the modal header
+ */
 function openActionModal(noticeId, title) {
-  document.getElementById('action-notice-id').value = noticeId;
-  document.getElementById('action-modal-title').textContent = `Respond to: ${title}`;
-  document.getElementById('action-remark').value = '';
-  document.getElementById('action-reply-file').value = '';
-  document.getElementById('action-status').style.display = 'none';
-
-  // Show two buttons: Noted and Completed — rendered as a select for simplicity
-  const existingSelect = document.getElementById('action-status-select');
-  if (!existingSelect) {
-    const sel = document.createElement('div');
-    sel.className = 'form-group';
-    sel.id = 'action-status-select-wrap';
-    sel.innerHTML = `
-      <label for="action-status-select-el">Action *</label>
-      <select id="action-status-select-el">
-        <option value="Noted">Mark as Noted (acknowledged, no further action)</option>
-        <option value="Completed">Mark as Completed (action taken)</option>
-      </select>`;
-    document.getElementById('action-form').insertBefore(sel, document.getElementById('action-form').firstChild);
-  }
-
-  document.getElementById('action-modal').style.display = 'block';
+  document.getElementById('action-notice-id').value          = noticeId;
+  document.getElementById('action-modal-title').textContent  = `Respond to: ${title}`;
+  document.getElementById('action-remark').value             = '';
+  document.getElementById('action-reply-file').value         = '';
+  document.getElementById('action-status').style.display     = 'none';
+  document.getElementById('action-status-select-el').value   = 'Noted'; // default to Noted
+  document.getElementById('action-modal').style.display      = 'block';
   document.body.style.overflow = 'hidden';
 }
 
+/**
+ * submitAction — handles the action form submission.
+ * Sends a PATCH request with the selected status, remark, and optional reply file.
+ * On success: shows a brief confirmation then reloads the dashboard.
+ * On failure: displays the server error message in the modal.
+ * @param {Event} e — form submit event
+ */
 async function submitAction(e) {
   e.preventDefault();
-  const btn      = document.getElementById('action-submit-btn');
-  const statusEl = document.getElementById('action-status');
-  const noticeId = document.getElementById('action-notice-id').value;
-  const remark   = document.getElementById('action-remark').value.trim();
+  const btn       = document.getElementById('action-submit-btn');
+  const statusEl  = document.getElementById('action-status');
+  const noticeId  = document.getElementById('action-notice-id').value;
+  const remark    = document.getElementById('action-remark').value.trim();
   const statusVal = document.getElementById('action-status-select-el')?.value || 'Completed';
   const replyFile = document.getElementById('action-reply-file').files[0];
 
+  // Client-side validation — remark is mandatory.
   if (!remark) {
-    statusEl.className = 'form-status error';
+    statusEl.className   = 'form-status error';
     statusEl.textContent = 'Remark is required.';
     statusEl.style.display = 'block';
     return;
   }
 
-  btn.disabled = true;
+  btn.disabled    = true;
   btn.textContent = 'Submitting...';
   statusEl.style.display = 'none';
 
   try {
+    // Use FormData so the optional reply file can be included as multipart.
     const fd = new FormData();
     fd.append('status', statusVal);
     fd.append('remark', remark);
@@ -349,9 +448,10 @@ async function submitAction(e) {
     statusEl.textContent = data.message;
     statusEl.style.display = 'block';
 
+    // Brief pause so the user can read the success message before the modal closes.
     setTimeout(() => {
       closeModal('action-modal');
-      loadDashboard();
+      loadDashboard(); // refresh both inbox and outbox
     }, 1000);
   } catch (err) {
     statusEl.className   = 'form-status error';
@@ -359,16 +459,58 @@ async function submitAction(e) {
     statusEl.style.display = 'block';
   }
 
-  btn.disabled = false;
+  btn.disabled    = false;
   btn.textContent = 'Submit';
 }
 
-// ── Utilities ─────────────────────────────────────────
+// ── Utility functions ──────────────────────────────────────────────────────────
+
+/**
+ * closeModal — hides a modal overlay and restores page scrolling.
+ * @param {string} id — element ID of the modal container
+ */
 function closeModal(id) {
   document.getElementById(id).style.display = 'none';
   document.body.style.overflow = '';
 }
 
+/**
+ * esc — XSS-safe HTML escape for user-supplied content inserted via innerHTML.
+ * @param {string|any} str
+ * @returns {string}
+ */
 function esc(str) {
-  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
+
+// ── Close Notice ───────────────────────────────────────────────────────────────
+
+/**
+ * closeNotice — closes a notice after user confirmation.
+ *
+ * "Closing" permanently removes the notice record, deletes all uploaded files
+ * (attachment + reply files) from storage, and archives completion statistics
+ * so the monthly chart is not affected.
+ *
+ * Available to the issuing department only when ALL target departments have
+ * marked the notice as Completed. The server enforces this rule.
+ *
+ * Exposed globally so the inline onclick="closeNotice(id)" in the modal HTML works.
+ *
+ * @param {number} id — notice ID to close
+ */
+async function closeNotice(id) {
+  if (!confirm('Close this notice permanently?\n\nAll uploaded files will be deleted. Statistics will be preserved. This cannot be undone.')) return;
+  try {
+    await fetchAuth(`${API}/portal/notices/${id}`, { method: 'DELETE' });
+    closeModal('notice-modal');
+    await loadDashboard();
+  } catch(e) {
+    alert('Could not close notice: ' + e.message);
+  }
+}
+window.closeNotice = closeNotice;

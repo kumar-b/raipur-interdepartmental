@@ -1,19 +1,39 @@
 /**
- * testDb.js — creates a fresh in-memory SQLite DB for each test file.
+ * testDb.js — in-memory SQLite database factory for the Jest test suite.
  *
- * Usage in test files:
+ * Usage in any test file:
  *   jest.mock('../database/db', () => require('./testDb').createDb());
  *
- * createDb() is called by Jest's mock factory once per test file,
- * giving each file its own isolated in-memory database.
+ * Jest hoists jest.mock() calls above all require/import statements, so the
+ * factory function runs the first time '../database/db' is required, returning
+ * a fresh in-memory database with schema + minimal seed data.
+ *
+ * Each test *file* gets its own isolated database instance because Jest runs
+ * each file in a separate worker. This means tests in different files cannot
+ * interfere with each other's data.
+ *
+ * Design decisions:
+ *   - bcrypt cost factor 10 (vs 12 in production) for faster test runs.
+ *   - Only 3 departments and 3 users are seeded — enough to exercise all
+ *     role/target combinations without slow setup.
+ *   - Schema mirrors db.js exactly so route logic works without modification.
  */
+
 const Database = require('better-sqlite3');
 const bcrypt   = require('bcryptjs');
 
+/**
+ * createDb — creates and seeds a fresh in-memory SQLite database.
+ * Called once per test file via the jest.mock factory.
+ * @returns {Database} — a better-sqlite3 database instance
+ */
 function createDb() {
+  // ':memory:' means the database exists only in RAM and is destroyed when
+  // the process exits (or when db.close() is called in afterAll).
   const db = new Database(':memory:');
-  db.pragma('foreign_keys = ON');
+  db.pragma('foreign_keys = ON'); // enforce referential integrity in tests
 
+  // ── Schema — mirrors backend/database/db.js exactly ───────────────────────
   db.exec(`
     CREATE TABLE IF NOT EXISTS departments (
       id INTEGER PRIMARY KEY, code TEXT NOT NULL UNIQUE,
@@ -57,18 +77,29 @@ function createDb() {
       user_id INTEGER NOT NULL, token_hash TEXT NOT NULL,
       expires_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- Archive table for completed-action counts from closed notices.
+    -- Mirrors the production schema in db.js so the UNION in monthly-stats works.
+    CREATE TABLE IF NOT EXISTS notice_archive_stats (
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      month     TEXT    NOT NULL,
+      completed INTEGER NOT NULL DEFAULT 0,
+      closed_at TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
-  // Seed minimal data — 3 departments, 3 users
+  // ── Seed: 3 departments — enough to test sender/target/uninvolved roles ───
   db.prepare(`INSERT INTO departments (id,code,name,category) VALUES
     (1,'REVENUE','Revenue Department','Administration'),
     (2,'HEALTH','Health Department','Social Services'),
     (3,'PWD','Public Works Department','Infrastructure')
   `).run();
 
-  // Cost factor 10 for faster test runs (vs 12 in production)
+  // ── Seed: 3 users — one admin, one per department ─────────────────────────
+  // Cost factor 10 gives ~3× speedup over production factor 12 with no security
+  // impact in a test environment (secrets are throwaway test values).
   const adminHash = bcrypt.hashSync('Admin@Test123', 10);
-  const deptHash  = bcrypt.hashSync('Dept@Test123', 10);
+  const deptHash  = bcrypt.hashSync('Dept@Test123',  10);
 
   db.prepare(`INSERT INTO users (username,password_hash,role,dept_id) VALUES
     ('admin',        ?, 'admin',      NULL),

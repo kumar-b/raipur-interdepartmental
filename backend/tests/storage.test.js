@@ -1,6 +1,8 @@
 /**
  * storage.test.js — unit tests for storage.js
- * Covers: local disk mode (no AWS credentials) and S3 mode (mocked AWS SDK)
+ * Covers:
+ *   saveFile  — local disk mode and S3 mode (mocked AWS SDK)
+ *   deleteFile — local disk mode (unlink) and S3 mode (DeleteObjectCommand)
  */
 
 process.env.JWT_SECRET =
@@ -59,6 +61,55 @@ describe('storage — local disk mode', () => {
     expect(a).not.toBe(b);
     jest.restoreAllMocks();
   });
+
+  // ── deleteFile — local disk mode ──────────────────────────────────────────
+
+  test('deleteFile calls fs.unlinkSync for an existing local file', async () => {
+    // Simulate a file that exists on disk.
+    jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+    const unlinkSpy = jest.spyOn(fs, 'unlinkSync').mockImplementation(() => {});
+
+    await storage.deleteFile('/uploads/1234-abc.pdf');
+
+    expect(unlinkSpy).toHaveBeenCalledTimes(1);
+    // The path passed to unlinkSync must point into the uploads directory.
+    expect(unlinkSpy.mock.calls[0][0]).toContain('uploads');
+    expect(unlinkSpy.mock.calls[0][0]).toContain('1234-abc.pdf');
+    jest.restoreAllMocks();
+  });
+
+  test('deleteFile does NOT call unlinkSync when the file does not exist', async () => {
+    // Simulate a file that is already missing (e.g. manually deleted).
+    jest.spyOn(fs, 'existsSync').mockReturnValue(false);
+    const unlinkSpy = jest.spyOn(fs, 'unlinkSync').mockImplementation(() => {});
+
+    await storage.deleteFile('/uploads/already-gone.pdf');
+
+    expect(unlinkSpy).not.toHaveBeenCalled();
+    jest.restoreAllMocks();
+  });
+
+  test('deleteFile is a no-op (does not throw) when filePath is null', async () => {
+    await expect(storage.deleteFile(null)).resolves.toBeUndefined();
+  });
+
+  test('deleteFile is a no-op when filePath is an empty string', async () => {
+    await expect(storage.deleteFile('')).resolves.toBeUndefined();
+  });
+
+  test('deleteFile does not throw even when unlinkSync throws an error', async () => {
+    // Simulate a permission error — deleteFile should swallow it and log a warning.
+    jest.spyOn(fs, 'existsSync').mockReturnValue(true);
+    jest.spyOn(fs, 'unlinkSync').mockImplementation(() => {
+      throw new Error('EACCES: permission denied');
+    });
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(storage.deleteFile('/uploads/locked-file.pdf')).resolves.toBeUndefined();
+    expect(warnSpy).toHaveBeenCalled();
+
+    jest.restoreAllMocks();
+  });
 });
 
 // ── S3 mode (AWS credentials present, SDK mocked) ────────────────────────────
@@ -74,8 +125,12 @@ describe('storage — S3 mode', () => {
 
     jest.resetModules();
     jest.doMock('@aws-sdk/client-s3', () => ({
-      S3Client:         jest.fn(() => ({ send: mockSend })),
-      PutObjectCommand: jest.fn(input => input),
+      S3Client:          jest.fn(() => ({ send: mockSend })),
+      PutObjectCommand:  jest.fn(input => input),
+      // DeleteObjectCommand is needed by deleteFile in S3 mode.
+      // Mock it the same way as PutObjectCommand: return the input so tests
+      // can inspect what the route code passed to s3.send().
+      DeleteObjectCommand: jest.fn(input => input),
     }));
 
     storageS3 = require('../storage');
@@ -138,12 +193,66 @@ describe('storage — S3 mode', () => {
     jest.resetModules();
     const localSend = jest.fn().mockResolvedValue({});
     jest.doMock('@aws-sdk/client-s3', () => ({
-      S3Client:         jest.fn(() => ({ send: localSend })),
-      PutObjectCommand: jest.fn(input => input),
+      S3Client:            jest.fn(() => ({ send: localSend })),
+      PutObjectCommand:    jest.fn(input => input),
+      DeleteObjectCommand: jest.fn(input => input),
     }));
     const s = require('../storage');
     const result = await s.saveFile(mockFile);
     expect(result).toContain('us-east-1');
     process.env.AWS_REGION = 'ap-south-1'; // restore
+  });
+
+  // ── deleteFile — S3 mode ──────────────────────────────────────────────────
+  // The S3 URL stored in the DB looks like:
+  //   https://my-test-bucket.s3.ap-south-1.amazonaws.com/uploads/1234-abc.pdf
+  // deleteFile must extract the key ("uploads/1234-abc.pdf") and call
+  // DeleteObjectCommand with the correct Bucket + Key.
+
+  const S3_FILE_URL =
+    'https://my-test-bucket.s3.ap-south-1.amazonaws.com/uploads/1234-abc.pdf';
+
+  test('deleteFile calls S3 send() exactly once for a valid S3 HTTPS URL', async () => {
+    await storageS3.deleteFile(S3_FILE_URL);
+    // send() must be called once for the DeleteObjectCommand.
+    expect(mockSend).toHaveBeenCalledTimes(1);
+  });
+
+  test('deleteFile sends to the correct S3 bucket', async () => {
+    await storageS3.deleteFile(S3_FILE_URL);
+    // The mocked DeleteObjectCommand returns its input, so mockSend receives
+    // the raw { Bucket, Key } object.
+    const sentInput = mockSend.mock.calls[0][0];
+    expect(sentInput.Bucket).toBe('my-test-bucket');
+  });
+
+  test('deleteFile extracts the correct S3 key from the HTTPS URL', async () => {
+    await storageS3.deleteFile(S3_FILE_URL);
+    const sentInput = mockSend.mock.calls[0][0];
+    // pathname of the URL is '/uploads/1234-abc.pdf'; slice(1) removes the leading '/'.
+    expect(sentInput.Key).toBe('uploads/1234-abc.pdf');
+  });
+
+  test('deleteFile does not touch the local filesystem when using S3', async () => {
+    // Neither writeFileSync nor unlinkSync should be called in S3 mode.
+    const writeSpy  = jest.spyOn(fs, 'writeFileSync').mockImplementation(() => {});
+    const unlinkSpy = jest.spyOn(fs, 'unlinkSync').mockImplementation(() => {});
+
+    await storageS3.deleteFile(S3_FILE_URL);
+
+    expect(writeSpy).not.toHaveBeenCalled();
+    expect(unlinkSpy).not.toHaveBeenCalled();
+    jest.restoreAllMocks();
+  });
+
+  test('deleteFile swallows S3 errors and logs a warning — does not throw', async () => {
+    // Simulate a transient S3 failure (e.g. network timeout, permission denied).
+    mockSend.mockRejectedValueOnce(new Error('AccessDenied: insufficient permissions'));
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(storageS3.deleteFile(S3_FILE_URL)).resolves.toBeUndefined();
+    expect(warnSpy).toHaveBeenCalled();
+
+    jest.restoreAllMocks();
   });
 });

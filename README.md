@@ -156,12 +156,14 @@ If any AWS variable is missing, files are saved to `backend/uploads/` and served
 - Summary cards — total notices, pending actions, overdue count
 - **Manage Users** — create department/admin users, assign departments, reset passwords, activate/deactivate accounts
 - **Add new departments** inline when creating a user
-- **Monthly Stats** — horizontal bar chart of completed actions per month across the district
+- **Monthly Stats** — horizontal bar chart of completed actions per month across the district; counts are preserved even after notices are closed
+- **Close Notice** — a "Close Notice" button is visible on every notice detail modal. Admin can force-close any notice regardless of whether target departments have completed it. On close: all uploaded files (attachment + reply files) are permanently deleted from disk or S3, and the database record is removed. Completion statistics are archived so the monthly chart remains accurate after closure.
 
 ### Department Dashboard
 - Inbox — receive and action notices (mark as Noted / Completed with remark and optional file reply)
 - Outbox — track notices sent by your department and their per-department status
 - Compose — create notices targeting specific departments or all departments, with optional file attachment
+- **Close Notice (Outbox)** — once every target department has marked a notice "Completed", a "Close Notice" button appears on the outbox detail view. Only the department that created the notice (or admin) can close it. Closing permanently deletes all uploaded files and removes the record; statistics are preserved.
 
 ### Authentication
 - JWT-based login with role separation (`admin` / `department`)
@@ -202,6 +204,7 @@ If any AWS variable is missing, files are saved to `backend/uploads/` and served
 | POST | `/api/portal/notices` | Dept | Create a new notice |
 | GET | `/api/portal/notices/:id` | Both | Notice detail + status per department |
 | PATCH | `/api/portal/notices/:id/status` | Dept | Update status (Noted / Completed) |
+| DELETE | `/api/portal/notices/:id` | Admin / Dept (own) | Close a notice — dept: only when all targets completed; admin: any notice regardless of status. Deletes all uploaded files; archives completion stats. |
 | GET | `/api/portal/users` | Admin | List all users |
 | POST | `/api/portal/users` | Admin | Create a new user |
 | PATCH | `/api/portal/users/:id/status` | Admin | Activate / deactivate a user |
@@ -225,10 +228,10 @@ npm test
 |------|---------------|-------|
 | `auth.test.js` | `/api/auth/login`, `/me`, `/change-password` | 13 |
 | `departments.test.js` | `GET /api/departments`, `POST /api/departments` | 16 |
-| `notices.test.js` | `/api/portal/notices/*` including monthly-stats | 31 |
+| `notices.test.js` | `/api/portal/notices/*` — create, inbox, outbox, status-update, close notice, monthly-stats | 50 |
 | `users.test.js` | `/api/portal/users/*` | 18 |
-| `storage.test.js` | Local disk mode + S3 mode (mocked SDK) | 13 |
-| **Total** | | **109** |
+| `storage.test.js` | `saveFile` + `deleteFile` — local disk mode and S3 mode (mocked SDK) | 23 |
+| **Total** | | **120** |
 
 ---
 

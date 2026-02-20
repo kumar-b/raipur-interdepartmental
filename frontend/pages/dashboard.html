@@ -86,7 +86,14 @@
       <h2 style="font-size:1rem; margin-bottom:1.2rem;" id="action-modal-title">Update Status</h2>
       <form id="action-form" enctype="multipart/form-data">
         <input type="hidden" id="action-notice-id" />
-        <input type="hidden" id="action-status-value" />
+
+        <div class="form-group">
+          <label for="action-status-select-el">Action *</label>
+          <select id="action-status-select-el">
+            <option value="Noted">Mark as Noted (acknowledged, no further action)</option>
+            <option value="Completed">Mark as Completed (action taken)</option>
+          </select>
+        </div>
 
         <div class="form-group">
           <label for="action-remark">Remark <span style="color:var(--accent-3);">*</span></label>
