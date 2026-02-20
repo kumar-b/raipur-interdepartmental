@@ -25,9 +25,14 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'Name, email, subject, and message are required.' });
   }
 
-  // In production: save to DB or send email via nodemailer.
-  // For now, log to console so submissions are visible in server output.
-  console.log('Contact form submission:', { name, department, subject, email, phone, message });
+  // Length guards to avoid huge payloads (protects against DoS).
+  if (name.length > 200 || subject.length > 300 || message.length > 5000 || email.length > 254) {
+    return res.status(400).json({ error: 'One or more fields exceed maximum length.' });
+  }
+
+  // TODO: In production, save to a database table or forward via email (nodemailer).
+  // Logging only non-PII metadata for operational visibility.
+  console.log('Contact form submitted:', { department: department || 'N/A', subject });
 
   res.status(200).json({
     success: true,

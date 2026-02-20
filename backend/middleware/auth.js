@@ -11,6 +11,7 @@
  */
 
 const jwt = require('jsonwebtoken');
+const db  = require('../database/db');
 
 /**
  * requireAuth — ensures the request carries a valid JWT.
@@ -35,8 +36,11 @@ function requireAuth(req, res, next) {
     // Verify signature and expiry using the application secret.
     const payload = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Attach only the fields that downstream handlers need — never expose
-    // password_hash or other sensitive columns from the DB row.
+    // Confirm the account still exists and is active (prevents access after deactivation).
+    const user = db.prepare('SELECT id, is_active FROM users WHERE id = ?').get(payload.id);
+    if (!user || !user.is_active) {
+      return res.status(401).json({ error: 'Account is deactivated or does not exist.' });
+    }
     req.user = {
       id:       payload.id,
       username: payload.username,

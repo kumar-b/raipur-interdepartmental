@@ -1,0 +1,22 @@
+version: "3.8"
+
+# Development compose — no SSL, direct port access
+# Usage:  docker compose -f docker-compose.dev.yml up --build
+
+services:
+  app:
+    build: .
+    container_name: raipur-portal-dev
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      - NODE_ENV=development
+    ports:
+      - "3000:3000"
+    volumes:
+      - db-data:/app/backend/database
+      - uploads-data:/app/backend/uploads
+
+volumes:
+  db-data:
+  uploads-data:

@@ -48,8 +48,8 @@ router.post('/users', requireAdmin, (req, res) => {
   if (role === 'department' && !dept_id) {
     return res.status(400).json({ error: 'dept_id is required for department users.' });
   }
-  if (password.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters.' });
   }
 
   // Check for username collision before attempting the insert.
@@ -78,6 +78,7 @@ router.post('/users', requireAdmin, (req, res) => {
 // An admin cannot deactivate their own account (self-lock prevention).
 router.patch('/users/:id/status', requireAdmin, (req, res) => {
   const userId = parseInt(req.params.id);
+  if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user ID.' });
   const { is_active } = req.body;
 
   // Prevent the admin from accidentally locking themselves out.
@@ -85,7 +86,16 @@ router.patch('/users/:id/status', requireAdmin, (req, res) => {
     return res.status(400).json({ error: 'You cannot deactivate your own account.' });
   }
 
-  // Store 1 (active) or 0 (inactive) — coerce the boolean to an integer.
+  const target = db.prepare('SELECT id, role FROM users WHERE id = ?').get(userId);
+  if (!target) return res.status(404).json({ error: 'User not found.' });
+
+  if (!is_active && target.role === 'admin') {
+    const activeAdmins = db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'admin' AND is_active = 1").get().c;
+    if (activeAdmins <= 1) {
+      return res.status(400).json({ error: 'Cannot deactivate the last active admin account.' });
+    }
+  }
+
   db.prepare('UPDATE users SET is_active = ? WHERE id = ?').run(is_active ? 1 : 0, userId);
   res.json({ success: true });
 });
@@ -95,10 +105,11 @@ router.patch('/users/:id/status', requireAdmin, (req, res) => {
 // Useful when a department staff member cannot remember their credentials.
 router.patch('/users/:id/password', requireAdmin, (req, res) => {
   const userId = parseInt(req.params.id);
+  if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user ID.' });
   const { newPassword } = req.body;
 
-  if (!newPassword || newPassword.length < 6) {
-    return res.status(400).json({ error: 'newPassword must be at least 6 characters.' });
+  if (!newPassword || newPassword.length < 8) {
+    return res.status(400).json({ error: 'newPassword must be at least 8 characters.' });
   }
 
   // Hash and store the new password.

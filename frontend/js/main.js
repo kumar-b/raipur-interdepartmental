@@ -3,11 +3,11 @@
    Handles: nav toggle, date display, public data fetching,
             and HTML rendering for the public-facing pages.
    Loaded on: index (home), departments, notices, officials, contact.
-   API base: http://localhost:3000
+   API base: relative '/api' (works in production behind proxy)
    ===================================================== */
 
-// Base URL for all API calls — change this when deploying to production.
-const API = 'http://localhost:3000/api';
+// Base URL for all API calls — relative so it works behind proxies/reverse-proxies.
+const API = '/api';
 
 /* ── Date / formatting helpers ─────────────────────────────────────────────── */
 
@@ -306,14 +306,14 @@ function openNoticeModal(n) {
   const content = document.getElementById('modal-content');
   content.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;">
-      <span class="text-upper text-small text-muted">${n.category} &mdash; ${fmt(n.date)}</span>
+      <span class="text-upper text-small text-muted">${esc(n.category)} &mdash; ${fmt(n.date)}</span>
       <button onclick="closeNoticeModal()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--muted);">&times;</button>
     </div>
     <hr class="rule" />
-    <h2 style="margin-bottom:1rem;">${n.title}</h2>
-    <p>${n.body}</p>
+    <h2 style="margin-bottom:1rem;">${esc(n.title)}</h2>
+    <p>${esc(n.body)}</p>
     <hr class="rule" />
-    <p class="text-muted text-small"><em>Issued by: ${n.issuedBy}</em><br />Department: ${n.department}</p>
+    <p class="text-muted text-small"><em>Issued by: ${esc(n.issuedBy)}</em><br />Department: ${esc(n.department)}</p>
   `;
   modal.style.display = 'block';
   document.body.style.overflow = 'hidden'; // prevent background scroll while modal is open
@@ -434,17 +434,17 @@ function noticeCardHTML(n, clickable = false) {
   const dateStr = fmt(n.date);
   const yearStr = fmtYear(n.date);
   const titleEl = clickable
-    ? `<a href="#" data-notice-id="${n.id}" class="notice-title">${n.title}</a>`
-    : `<span class="notice-title">${n.title}</span>`;
+    ? `<a href="#" data-notice-id="${n.id}" class="notice-title">${esc(n.title)}</a>`
+    : `<span class="notice-title">${esc(n.title)}</span>`;
   return `
     <div class="notice-card">
       <div class="notice-date">${dateStr}<span class="year">${yearStr}</span></div>
       <div>
         ${titleEl}
         <div class="notice-meta">
-          <span class="tag ${n.priority}">${n.priority}</span>
-          <span class="tag">${n.category}</span>
-          ${n.department}
+          <span class="tag ${esc(n.priority)}">${esc(n.priority)}</span>
+          <span class="tag">${esc(n.category)}</span>
+          ${esc(n.department)}
         </div>
       </div>
     </div>`;
@@ -459,10 +459,10 @@ function noticeCardHTML(n, clickable = false) {
 function deptCardHTML(d) {
   return `
     <div class="dept-card">
-      <span class="dept-code">${d.code}</span>
-      <span class="dept-name">${d.name}</span>
-      <span class="dept-category">${d.category}</span>
-      ${d.website ? `<a class="dept-link" href="${d.website}" target="_blank" rel="noopener">Official site &rarr;</a>` : ''}
+      <span class="dept-code">${esc(d.code)}</span>
+      <span class="dept-name">${esc(d.name)}</span>
+      <span class="dept-category">${esc(d.category)}</span>
+      ${d.website ? `<a class="dept-link" href="${esc(d.website)}" target="_blank" rel="noopener">Official site &rarr;</a>` : ''}
     </div>`;
 }
 
@@ -475,11 +475,11 @@ function deptCardHTML(d) {
 function officialRowHTML(o, showEmail = true) {
   return `
     <tr>
-      <td><span class="official-name">${o.name}</span><span class="official-service">${o.service}</span></td>
-      <td>${o.designation}</td>
-      <td>${o.division}</td>
-      <td><a href="tel:${o.phone.replace(/[^0-9+]/g, '')}">${o.phone}</a></td>
-      ${showEmail ? `<td><a href="mailto:${o.email}">${o.email}</a></td>` : ''}
+      <td><span class="official-name">${esc(o.name)}</span><span class="official-service">${esc(o.service)}</span></td>
+      <td>${esc(o.designation)}</td>
+      <td>${esc(o.division)}</td>
+      <td><a href="tel:${o.phone.replace(/[^0-9+]/g,'')}">${esc(o.phone)}</a></td>
+      ${showEmail ? `<td><a href="mailto:${esc(o.email)}">${esc(o.email)}</a></td>` : ''}
     </tr>`;
 }
 
