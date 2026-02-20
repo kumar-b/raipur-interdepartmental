@@ -78,6 +78,7 @@ router.post('/users', requireAdmin, (req, res) => {
 // An admin cannot deactivate their own account (self-lock prevention).
 router.patch('/users/:id/status', requireAdmin, (req, res) => {
   const userId = parseInt(req.params.id);
+  if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user ID.' });
   const { is_active } = req.body;
 
   // Prevent the admin from accidentally locking themselves out.
@@ -95,6 +96,7 @@ router.patch('/users/:id/status', requireAdmin, (req, res) => {
 // Useful when a department staff member cannot remember their credentials.
 router.patch('/users/:id/password', requireAdmin, (req, res) => {
   const userId = parseInt(req.params.id);
+  if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user ID.' });
   const { newPassword } = req.body;
 
   if (!newPassword || newPassword.length < 6) {

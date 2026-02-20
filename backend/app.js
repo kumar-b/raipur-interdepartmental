@@ -59,6 +59,18 @@ app.use('/api/auth',   authRouter);        // login, /me, change-password
 app.use('/api/portal', noticesAuthRouter); // inbox, outbox, create/update/delete
 app.use('/api/portal', usersRouter);       // user management (admin only)
 
+// ── Global JSON error handler ────────────────────────────────────────────────
+// Catches any error thrown (or passed to next(err)) by a route handler and
+// returns a JSON response instead of Express's default HTML error page.
+// This must be registered AFTER all routes and BEFORE the SPA fallback so
+// that API errors are surfaced as JSON while unknown page paths still fall
+// through to index.html.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error('[unhandled error]', err.message);
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error.' });
+});
+
 // SPA fallback — serve index.html for any unknown path so the frontend
 // router (simple <a href> navigation) works correctly on page reload.
 app.get('*', (req, res) => {

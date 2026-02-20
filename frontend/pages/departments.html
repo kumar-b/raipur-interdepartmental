@@ -95,12 +95,5 @@
   </footer>
 
   <script src="../js/main.js"></script>
-  <script>
-  (function(){
-    var t=localStorage.getItem('portal_token');
-    var u=JSON.parse(localStorage.getItem('portal_user')||'null');
-    if(t&&u){var l=document.getElementById('nav-portal-login');if(l){l.textContent=u.role==='admin'?'Admin Panel':'My Dashboard';l.href=u.role==='admin'?'admin.html':'dashboard.html';}}
-  })();
-  </script>
 </body>
 </html>

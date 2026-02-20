@@ -29,7 +29,8 @@ raipur-interdepartmental/
 │   │   ├── style.css               # Main styles (Archivist theme)
 │   │   └── responsive.css          # Mobile breakpoints
 │   ├── js/
-│   │   ├── main.js                 # Shared utilities
+│   │   ├── main.js                 # Shared utilities + public page init
+│   │   ├── login.js                # Login page — session redirect + form submit
 │   │   ├── admin.js                # Admin dashboard logic
 │   │   ├── dashboard.js            # Department dashboard logic
 │   │   └── compose.js              # Notice compose logic
@@ -118,8 +119,6 @@ cp backend/.env.example backend/.env
 | `AWS_SECRET_ACCESS_KEY` | S3 only | IAM secret key |
 | `AWS_S3_BUCKET` | S3 only | S3 bucket name (must already exist) |
 | `AWS_REGION` | S3 only | Bucket region (default: `us-east-1`) |
-
----
 
 ---
 
@@ -227,11 +226,11 @@ npm test
 | File | What is tested | Tests |
 |------|---------------|-------|
 | `auth.test.js` | `/api/auth/login`, `/me`, `/change-password` | 13 |
-| `departments.test.js` | `GET /api/departments`, `POST /api/departments` | 16 |
-| `notices.test.js` | `/api/portal/notices/*` — create, inbox, outbox, status-update, close notice, monthly-stats | 50 |
-| `users.test.js` | `/api/portal/users/*` | 18 |
+| `departments.test.js` | `GET /api/departments`, `GET /api/departments/:id`, `GET /api/departments/officials/all`, `POST /api/departments` | 18 |
+| `notices.test.js` | `/api/portal/notices/*` — create, inbox, outbox, detail, status-update, close notice, monthly-stats | 50 |
+| `users.test.js` | `/api/portal/users/*` — list, create, toggle status, reset password | 27 |
 | `storage.test.js` | `saveFile` + `deleteFile` — local disk mode and S3 mode (mocked SDK) | 23 |
-| **Total** | | **120** |
+| **Total** | | **131** |
 
 ---
 
@@ -244,6 +243,28 @@ npm test
 | `dept_health` | *(set in seed)* | Department |
 
 > Passwords are hashed with bcryptjs. Change them after first login.
+
+---
+
+## Changelog
+
+### Bug fixes & hardening (code review)
+
+**Production / CSP fixes**
+- Fixed hardcoded `http://localhost:3000/api` API base URL — changed to root-relative `/api` so all API calls work on the production HTTPS host without triggering mixed-content browser blocks
+- Replaced all `onclick="..."` inline event handlers (blocked by `script-src-attr 'none'` CSP) with `addEventListener` in `admin.js` and `dashboard.js`
+- Removed all inline `<script>` blocks from HTML files (blocked by `script-src-elem` CSP); nav-link updater logic moved to `main.js`, login page logic extracted to a new `login.js` file
+
+**Backend**
+- Added global JSON error handler middleware to `app.js` — Express previously returned an HTML 500 page on unhandled errors, which the frontend couldn't parse
+- Added `try/catch` to the `monthly-stats` route so errors surface as JSON instead of crashing the request
+- Added `isNaN()` guards to all parameterised routes in `notices-auth.js` (`GET/PATCH/DELETE /notices/:id`) and `users.js` (`PATCH /users/:id/status` and `PATCH /users/:id/password`) — a non-numeric ID previously either silently did nothing or returned a misleading 403
+- Fixed `storage.test.js` — a mid-describe `jest.resetModules()` call was corrupting the module mock cache and causing 4 S3 `deleteFile` tests to fail; fixed by re-registering the mock and re-requiring `storage` after the offending test
+
+**Frontend**
+- Removed stale `window.closeModal` global export from `admin.js` (left over after inline onclick removal)
+- Removed dead `if (!res.ok)` check in `dashboard.js submitAction` — `fetchAuth` already throws on non-2xx responses so the check was unreachable
+- Fixed XSS in `main.js deptCardHTML` — department `name`, `code`, and `category` values (from the database) are now HTML-escaped before insertion into `innerHTML`; `website` URLs are validated to only allow `http://` or `https://` schemes, preventing `javascript:` URL injection
 
 ---
 

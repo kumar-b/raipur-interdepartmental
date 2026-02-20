@@ -3,11 +3,11 @@
    Handles: nav toggle, date display, public data fetching,
             and HTML rendering for the public-facing pages.
    Loaded on: index (home), departments, notices, officials, contact.
-   API base: http://localhost:3000
+   API base: /api (root-relative)
    ===================================================== */
 
-// Base URL for all API calls — change this when deploying to production.
-const API = 'http://localhost:3000/api';
+// Base URL for all API calls — root-relative so it works on any host/port.
+const API = '/api';
 
 /* ── Date / formatting helpers ─────────────────────────────────────────────── */
 
@@ -307,7 +307,7 @@ function openNoticeModal(n) {
   content.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;">
       <span class="text-upper text-small text-muted">${n.category} &mdash; ${fmt(n.date)}</span>
-      <button onclick="closeNoticeModal()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--muted);">&times;</button>
+      <button id="notice-modal-close-btn" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--muted);">&times;</button>
     </div>
     <hr class="rule" />
     <h2 style="margin-bottom:1rem;">${n.title}</h2>
@@ -315,19 +315,18 @@ function openNoticeModal(n) {
     <hr class="rule" />
     <p class="text-muted text-small"><em>Issued by: ${n.issuedBy}</em><br />Department: ${n.department}</p>
   `;
+  document.getElementById('notice-modal-close-btn').addEventListener('click', closeNoticeModal);
   modal.style.display = 'block';
   document.body.style.overflow = 'hidden'; // prevent background scroll while modal is open
 }
 
 /**
  * closeNoticeModal — hides the notice detail modal and restores page scrolling.
- * Exposed globally so inline onclick handlers (close button) can call it.
  */
 function closeNoticeModal() {
   document.getElementById('notice-modal').style.display = 'none';
   document.body.style.overflow = '';
 }
-window.closeNoticeModal = closeNoticeModal;
 
 /* ═══════════════════════════════════════════════════════════════════════════
    OFFICIALS PAGE
@@ -457,12 +456,14 @@ function noticeCardHTML(n, clickable = false) {
  * @returns {string}
  */
 function deptCardHTML(d) {
+  // Only allow http/https URLs to prevent javascript: XSS via the website field.
+  const safeWebsite = d.website && /^https?:\/\//i.test(d.website) ? d.website : null;
   return `
     <div class="dept-card">
-      <span class="dept-code">${d.code}</span>
-      <span class="dept-name">${d.name}</span>
-      <span class="dept-category">${d.category}</span>
-      ${d.website ? `<a class="dept-link" href="${d.website}" target="_blank" rel="noopener">Official site &rarr;</a>` : ''}
+      <span class="dept-code">${esc(d.code)}</span>
+      <span class="dept-name">${esc(d.name)}</span>
+      <span class="dept-category">${esc(d.category || '')}</span>
+      ${safeWebsite ? `<a class="dept-link" href="${esc(safeWebsite)}" target="_blank" rel="noopener">Official site &rarr;</a>` : ''}
     </div>`;
 }
 
@@ -536,10 +537,27 @@ function fallbackOfficials() {
 /* ═══════════════════════════════════════════════════════════════════════════
    INIT — entry point on every public page
    ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * updateNavPortalLink — if the user is already logged in, replace the
+ * "Portal Login" nav link with "Admin Panel" or "My Dashboard".
+ * Handles both root-level pages (index.html) and pages/ subdirectory pages.
+ */
+function updateNavPortalLink() {
+  const t = localStorage.getItem('portal_token');
+  const u = JSON.parse(localStorage.getItem('portal_user') || 'null');
+  const l = document.getElementById('nav-portal-login');
+  if (!t || !u || !l) return;
+  const prefix = currentPage() === 'home' ? 'pages/' : '';
+  l.textContent = u.role === 'admin' ? 'Admin Panel' : 'My Dashboard';
+  l.href        = u.role === 'admin' ? `${prefix}admin.html` : `${prefix}dashboard.html`;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-  setLiveDate();      // populate the header date display
-  setFooterYear();    // keep the footer copyright year current
-  initNavToggle();    // wire up the mobile hamburger menu
+  setLiveDate();           // populate the header date display
+  setFooterYear();         // keep the footer copyright year current
+  initNavToggle();         // wire up the mobile hamburger menu
+  updateNavPortalLink();   // swap "Portal Login" → dashboard link if logged in
 
   // Run the appropriate page-specific initialisation function.
   const page = currentPage();
