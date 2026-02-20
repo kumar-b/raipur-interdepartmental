@@ -126,22 +126,12 @@ app.use('/api/departments', departmentsRouter);
 app.use('/api/notices',     noticesRouter);
 app.use('/api/contact',     contactLimiter, contactRouter);
 
-<<<<<<< HEAD
-// ── Authenticated API routes (JWT required for protected endpoints) ──────────
-app.use('/api/auth',   authRouter);        // login, /me, change-password
-app.use('/api/portal', noticesAuthRouter); // inbox, outbox, create/update/delete
-app.use('/api/portal', usersRouter);       // user management (admin only)
-
-// SPA fallback — serve index.html for any unknown path so the frontend
-// router (simple <a href> navigation) works correctly on page reload.
-=======
 // ── Authenticated API ─────────────────────────────────
 app.use('/api/auth',   authLimiter, authRouter);
 app.use('/api/portal', noticesAuthRouter);
 app.use('/api/portal', usersRouter);
 
 // ── SPA fallback ──────────────────────────────────────
->>>>>>> ed5f584 (feat: deployment review and deployment level changes)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });
