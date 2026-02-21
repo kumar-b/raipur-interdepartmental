@@ -526,7 +526,6 @@ function fallbackDepts() {
 /** fallbackOfficials — returns a static list of key district officials. */
 function fallbackOfficials() {
   return [
-    { id:1, name:"Shri Mahadev Kavre",     service:"IAS", designation:"Commissioner, Raipur Division",           division:"Commissioner's Office", email:"dcr.raipur@gmail.com",    phone:"0771-2536660" },
     { id:2, name:"Dr. Gaurav Kumar Singh", service:"IAS", designation:"Collector & District Magistrate, Raipur", division:"Collectorate",           email:"collector-rpr.cg@gov.in", phone:"0771-2426024" },
     { id:3, name:"Shri Sanjeev Shukla",    service:"IPS", designation:"Commissioner of Police, Raipur",          division:"Police Department",      email:"raipurpolice@gmail.com",  phone:"0771-2285004" },
     { id:4, name:"Kumar Biswaranjan",      service:"IAS", designation:"CEO, District Panchayat",                 division:"Zilla Panchayat",        email:"zp-raipur.cg@nic.in",    phone:"0771-2426739" },

@@ -7,14 +7,14 @@
 
 /* ── CSS Variables ── */
 :root {
-  --ink:        #1a1a18;
-  --paper:      #f5f0e8;
-  --paper-dark: #ede8dc;
-  --rule:       #c8c0aa;
-  --accent:     #4a6741;   /* library green */
-  --accent-2:   #7fa8b8;   /* airmail blue */
+  --ink:        #1a1e22;
+  --paper:      #f2f6f9;   /* airmail light blue */
+  --paper-dark: #e5eef4;   /* airmail blue shade */
+  --rule:       #b8ccda;   /* blue-grey rule */
+  --accent:     #2e6a8a;   /* airmail blue (primary) */
+  --accent-2:   #7fa8b8;   /* mid blue */
   --accent-3:   #b87a72;   /* carbon pink */
-  --muted:      #6b6558;
+  --muted:      #5c7585;   /* blue-grey muted */
   --max-width:  780px;
   --font-mono:  'Courier Prime', 'Courier New', monospace;
   --font-title: 'Special Elite', serif;
