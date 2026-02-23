@@ -201,6 +201,16 @@ describe('storage — S3 mode', () => {
     const result = await s.saveFile(mockFile);
     expect(result).toContain('us-east-1');
     process.env.AWS_REGION = 'ap-south-1'; // restore
+
+    // Re-register the original mock and re-require so the deleteFile tests
+    // that follow this one still get mockSend, not the real SDK or localSend.
+    jest.resetModules();
+    jest.doMock('@aws-sdk/client-s3', () => ({
+      S3Client:            jest.fn(() => ({ send: mockSend })),
+      PutObjectCommand:    jest.fn(input => input),
+      DeleteObjectCommand: jest.fn(input => input),
+    }));
+    storageS3 = require('../storage');
   });
 
   // ── deleteFile — S3 mode ──────────────────────────────────────────────────

@@ -66,12 +66,7 @@ users.forEach(u => {
 });
 console.log(`Seeded ${users.length} users`);
 
-<<<<<<< HEAD
-// ── 3. Seed sample notices ───────────────────────────────────────────────────
-// Look up the user IDs created above so we can reference them in the notices.
-=======
 // ── 3. Seed sample notices ───────────────────────────
->>>>>>> ed5f584 (feat: deployment review and deployment level changes)
 const adminUser    = db.prepare('SELECT id FROM users WHERE username = ?').get('admin');
 const financeUser  = db.prepare('SELECT id FROM users WHERE username = ?').get('dept_finance');
 const homeUser     = db.prepare('SELECT id FROM users WHERE username = ?').get('dept_home');
@@ -90,48 +85,19 @@ const insertStatus = db.prepare(`
   INSERT OR IGNORE INTO notice_status (notice_id, dept_id, status) VALUES (?, ?, 'Pending')
 `);
 
-<<<<<<< HEAD
-// Notice 1: Finance → ALL departments (overdue — past deadline)
-// target_all = 1, so we skip notice_targets and write a status row for every dept.
-const n1 = insertNotice.run(
-  'Annual Budget Utilisation Report — FY 2025-26',
-  'All departments are directed to submit their budget utilisation reports for FY 2025-26 to the Finance Department at the earliest. Non-submission will be noted in the performance review.',
-  'High',
-  '2026-02-10',   // past deadline — will appear as overdue in the dashboard
-  15,             // source_dept_id: Finance Department
-  1,              // target_all = 1 (broadcast)
-  financeUser.id,
-  '2026-02-01 09:00:00'
-);
-// Create a Pending status row for every department except the sender (Finance, id=15).
-=======
 const n1 = insertNotice.run(
   'Annual Budget Utilisation Report — FY 2025-26',
   'All departments are directed to submit their budget utilisation reports for FY 2025-26 to the Finance Department at the earliest. Non-submission will be noted in the performance review.',
   'High', '2026-02-10', 15, 1, financeUser.id, '2026-02-01 09:00:00'
 );
->>>>>>> ed5f584 (feat: deployment review and deployment level changes)
 depts.filter(d => d.id !== 15).forEach(d => {
   insertStatus.run(n1.lastInsertRowid, d.id);
 });
 
-<<<<<<< HEAD
-// Notice 2: Revenue → Health, Education, Social Welfare (specific targets)
-const n2 = insertNotice.run(
-  'Inter-Departmental Coordination Meeting — March 2026',
-  'A coordination meeting for reviewing joint schemes (National Health Mission, Mid-Day Meal, Social Welfare convergence) is scheduled for 5 March 2026 at 10:30 AM, Conference Room 2, Collectorate. Please confirm attendance by 28 February 2026.',
-  'Normal',
-  '2026-03-05',
-  1,             // source_dept_id: Revenue Department
-  0,             // target_all = 0 (specific targets only)
-  revenueUser.id,
-  '2026-02-12 11:00:00'
-=======
 const n2 = insertNotice.run(
   'Inter-Departmental Coordination Meeting — March 2026',
   'A coordination meeting for reviewing joint schemes (National Health Mission, Mid-Day Meal, Social Welfare convergence) is scheduled for 5 March 2026 at 10:30 AM, Conference Room 2, Collectorate. Please confirm attendance by 28 February 2026.',
   'Normal', '2026-03-05', 1, 0, revenueUser.id, '2026-02-12 11:00:00'
->>>>>>> ed5f584 (feat: deployment review and deployment level changes)
 );
 // Health (3), Education (6), Social Welfare (13)
 [3, 6, 13].forEach(deptId => {
@@ -139,23 +105,10 @@ const n2 = insertNotice.run(
   insertStatus.run(n2.lastInsertRowid, deptId);
 });
 
-<<<<<<< HEAD
-// Notice 3: Home → Transport, PWD (road safety inspection)
-const n3 = insertNotice.run(
-  'Road Safety Inspection — State Highway 10',
-  'The Home Department has received complaints regarding unsafe road conditions on SH-10 near Tatibandh flyover. Transport and PWD departments are requested to conduct a joint inspection by 10 March 2026 and submit a report with remediation timeline.',
-  'High',
-  '2026-03-10',
-  9,             // source_dept_id: Home Department
-  0,
-  homeUser.id,
-  '2026-02-14 14:30:00'
-=======
 const n3 = insertNotice.run(
   'Road Safety Inspection — State Highway 10',
   'The Home Department has received complaints regarding unsafe road conditions on SH-10 near Tatibandh flyover. Transport and PWD departments are requested to conduct a joint inspection by 10 March 2026 and submit a report with remediation timeline.',
   'High', '2026-03-10', 9, 0, homeUser.id, '2026-02-14 14:30:00'
->>>>>>> ed5f584 (feat: deployment review and deployment level changes)
 );
 // Transport (10), PWD (12)
 [10, 12].forEach(deptId => {

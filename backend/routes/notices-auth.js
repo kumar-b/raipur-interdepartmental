@@ -111,26 +111,31 @@ router.get('/notices/all', requireAdmin, (req, res) => {
 //   2. notice_archive_stats — rows written at close time for deleted notices.
 // The UNION ALL + outer GROUP BY correctly merges counts from both sources.
 router.get('/notices/monthly-stats', requireAdmin, (req, res) => {
-  const rows = db.prepare(`
-    SELECT month, SUM(completed) AS completed
-    FROM (
-      -- Live completed rows from notices that are still open
-      SELECT strftime('%Y-%m', updated_at) AS month, COUNT(*) AS completed
-      FROM notice_status
-      WHERE status = 'Completed' AND updated_at IS NOT NULL
-      GROUP BY month
-
-      UNION ALL
-
-      -- Archived counts from notices that have been closed
+  try {
+    const rows = db.prepare(`
       SELECT month, SUM(completed) AS completed
-      FROM notice_archive_stats
+      FROM (
+        -- Live completed rows from notices that are still open
+        SELECT strftime('%Y-%m', updated_at) AS month, COUNT(*) AS completed
+        FROM notice_status
+        WHERE status = 'Completed' AND updated_at IS NOT NULL
+        GROUP BY month
+
+        UNION ALL
+
+        -- Archived counts from notices that have been closed
+        SELECT month, SUM(completed) AS completed
+        FROM notice_archive_stats
+        GROUP BY month
+      )
       GROUP BY month
-    )
-    GROUP BY month
-    ORDER BY month ASC
-  `).all();
-  res.json(rows);
+      ORDER BY month ASC
+    `).all();
+    res.json(rows);
+  } catch (err) {
+    console.error('[monthly-stats]', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── GET /api/portal/notices/inbox  (dept/admin) ─────────────────────────────
@@ -304,6 +309,7 @@ router.post('/notices', requireAuth, upload.single('attachment'), async (req, re
 // Also marks the notice as read (is_read = 1) for the requesting department.
 router.get('/notices/:id', requireAuth, (req, res) => {
   const noticeId = parseInt(req.params.id);
+  if (isNaN(noticeId)) return res.status(400).json({ error: 'Invalid notice ID.' });
 
   const notice = db.prepare(`
     SELECT n.*, d.name AS source_dept_name, d.code AS source_dept_code,
@@ -348,6 +354,7 @@ router.patch('/notices/:id/status', requireAuth, upload.single('reply'), async (
   }
 
   const noticeId  = parseInt(req.params.id);
+  if (isNaN(noticeId)) return res.status(400).json({ error: 'Invalid notice ID.' });
   const { status, remark } = req.body;
   const dept_id   = req.user.dept_id;
 
@@ -409,6 +416,7 @@ router.patch('/notices/:id/status', requireAuth, upload.single('reply'), async (
 //   but does NOT fail the close operation.
 router.delete('/notices/:id', requireAuth, async (req, res) => {
   const noticeId = parseInt(req.params.id);
+  if (isNaN(noticeId)) return res.status(400).json({ error: 'Invalid notice ID.' });
   const { role, dept_id } = req.user;
 
   const notice = db.prepare('SELECT * FROM notices WHERE id = ?').get(noticeId);

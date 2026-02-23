@@ -128,10 +128,10 @@ app.use('/api/contact',     contactLimiter, contactRouter);
 
 // ── Authenticated API ─────────────────────────────────
 app.use('/api/auth',   authLimiter, authRouter);
-app.use('/api/portal', noticesAuthRouter);
 app.use('/api/portal', usersRouter);
 
 // ── SPA fallback ──────────────────────────────────────
+// Serve index.html for any unknown path so the frontend router works on reload.
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/index.html'));
 });

@@ -3,10 +3,10 @@
    Handles: nav toggle, date display, public data fetching,
             and HTML rendering for the public-facing pages.
    Loaded on: index (home), departments, notices, officials, contact.
-   API base: relative '/api' (works in production behind proxy)
+   API base: /api (root-relative)
    ===================================================== */
 
-// Base URL for all API calls — relative so it works behind proxies/reverse-proxies.
+// Base URL for all API calls — root-relative so it works on any host/port.
 const API = '/api';
 
 /* ── Date / formatting helpers ─────────────────────────────────────────────── */
@@ -307,7 +307,7 @@ function openNoticeModal(n) {
   content.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1rem;">
       <span class="text-upper text-small text-muted">${esc(n.category)} &mdash; ${fmt(n.date)}</span>
-      <button onclick="closeNoticeModal()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--muted);">&times;</button>
+      <button id="notice-modal-close-btn" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:var(--muted);">&times;</button>
     </div>
     <hr class="rule" />
     <h2 style="margin-bottom:1rem;">${esc(n.title)}</h2>
@@ -315,19 +315,18 @@ function openNoticeModal(n) {
     <hr class="rule" />
     <p class="text-muted text-small"><em>Issued by: ${esc(n.issuedBy)}</em><br />Department: ${esc(n.department)}</p>
   `;
+  document.getElementById('notice-modal-close-btn').addEventListener('click', closeNoticeModal);
   modal.style.display = 'block';
   document.body.style.overflow = 'hidden'; // prevent background scroll while modal is open
 }
 
 /**
  * closeNoticeModal — hides the notice detail modal and restores page scrolling.
- * Exposed globally so inline onclick handlers (close button) can call it.
  */
 function closeNoticeModal() {
   document.getElementById('notice-modal').style.display = 'none';
   document.body.style.overflow = '';
 }
-window.closeNoticeModal = closeNoticeModal;
 
 /* ═══════════════════════════════════════════════════════════════════════════
    OFFICIALS PAGE
@@ -457,12 +456,14 @@ function noticeCardHTML(n, clickable = false) {
  * @returns {string}
  */
 function deptCardHTML(d) {
+  // Only allow http/https URLs to prevent javascript: XSS via the website field.
+  const safeWebsite = d.website && /^https?:\/\//i.test(d.website) ? d.website : null;
   return `
     <div class="dept-card">
       <span class="dept-code">${esc(d.code)}</span>
       <span class="dept-name">${esc(d.name)}</span>
-      <span class="dept-category">${esc(d.category)}</span>
-      ${d.website ? `<a class="dept-link" href="${esc(d.website)}" target="_blank" rel="noopener">Official site &rarr;</a>` : ''}
+      <span class="dept-category">${esc(d.category || '')}</span>
+      ${safeWebsite ? `<a class="dept-link" href="${esc(safeWebsite)}" target="_blank" rel="noopener">Official site &rarr;</a>` : ''}
     </div>`;
 }
 
@@ -497,7 +498,7 @@ function fallbackNotices() {
     { id:3, title:"Swachh Bharat Mission — Drive Schedule Q1 2026", date:"2026-02-05", department:"Nagar Nigam", category:"Notice", priority:"normal", body:"Cleanliness drives across all wards every Saturday from March to May 2026.", issuedBy:"Shri Vishwadeep, Commissioner, Nagar Nigam" },
     { id:4, title:"Digital India Training Programme for District Officers", date:"2026-01-28", department:"Collectorate", category:"Training", priority:"normal", body:"A three-day Digital India training at NIC Raipur from 10–12 March 2026.", issuedBy:"Office of the Commissioner, Raipur Division" },
     { id:5, title:"Gram Swaraj Abhiyan — Action Plan Submission", date:"2026-01-20", department:"Zilla Panchayat", category:"Circular", priority:"normal", body:"All BDOs to submit Gram Swaraj Abhiyan action plans for 2026-27 by 10 February 2026.", issuedBy:"Kumar Biswaranjan, CEO, Zilla Panchayat" },
-    { id:6, title:"Security Advisory — Election Duty Preparedness", date:"2026-01-15", department:"Police Department", category:"Advisory", priority:"high", body:"All departmental heads to ensure readiness for election duty as per ECI directives.", issuedBy:"Shri Lal Umed Singh, SSP Raipur" }
+    { id:6, title:"Security Advisory — Election Duty Preparedness", date:"2026-01-15", department:"Police Department", category:"Advisory", priority:"high", body:"All departmental heads to ensure readiness for election duty as per ECI directives.", issuedBy:"Shri Sanjeev Shukla, CP Raipur" }
   ];
 }
 
@@ -525,9 +526,8 @@ function fallbackDepts() {
 /** fallbackOfficials — returns a static list of key district officials. */
 function fallbackOfficials() {
   return [
-    { id:1, name:"Shri Mahadev Kavre",     service:"IAS", designation:"Commissioner, Raipur Division",           division:"Commissioner's Office", email:"dcr.raipur@gmail.com",    phone:"0771-2536660" },
     { id:2, name:"Dr. Gaurav Kumar Singh", service:"IAS", designation:"Collector & District Magistrate, Raipur", division:"Collectorate",           email:"collector-rpr.cg@gov.in", phone:"0771-2426024" },
-    { id:3, name:"Shri Lal Umed Singh",    service:"IPS", designation:"Senior Superintendent of Police",         division:"Police Department",      email:"raipurpolice@gmail.com",  phone:"0771-2285004" },
+    { id:3, name:"Shri Sanjeev Shukla",    service:"IPS", designation:"Commissioner of Police, Raipur",          division:"Police Department",      email:"raipurpolice@gmail.com",  phone:"0771-2285004" },
     { id:4, name:"Kumar Biswaranjan",      service:"IAS", designation:"CEO, District Panchayat",                 division:"Zilla Panchayat",        email:"zp-raipur.cg@nic.in",    phone:"0771-2426739" },
     { id:5, name:"Shri Vishwadeep",        service:"IAS", designation:"Commissioner, Municipal Corporation",     division:"Nagar Nigam",            email:"nigam.raipur.cg@nic.in", phone:"0771-2531014" }
   ];
@@ -536,10 +536,27 @@ function fallbackOfficials() {
 /* ═══════════════════════════════════════════════════════════════════════════
    INIT — entry point on every public page
    ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * updateNavPortalLink — if the user is already logged in, replace the
+ * "Portal Login" nav link with "Admin Panel" or "My Dashboard".
+ * Handles both root-level pages (index.html) and pages/ subdirectory pages.
+ */
+function updateNavPortalLink() {
+  const t = localStorage.getItem('portal_token');
+  const u = JSON.parse(localStorage.getItem('portal_user') || 'null');
+  const l = document.getElementById('nav-portal-login');
+  if (!t || !u || !l) return;
+  const prefix = currentPage() === 'home' ? 'pages/' : '';
+  l.textContent = u.role === 'admin' ? 'Admin Panel' : 'My Dashboard';
+  l.href        = u.role === 'admin' ? `${prefix}admin.html` : `${prefix}dashboard.html`;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-  setLiveDate();      // populate the header date display
-  setFooterYear();    // keep the footer copyright year current
-  initNavToggle();    // wire up the mobile hamburger menu
+  setLiveDate();           // populate the header date display
+  setFooterYear();         // keep the footer copyright year current
+  initNavToggle();         // wire up the mobile hamburger menu
+  updateNavPortalLink();   // swap "Portal Login" → dashboard link if logged in
 
   // Run the appropriate page-specific initialisation function.
   const page = currentPage();

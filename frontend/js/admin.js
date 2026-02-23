@@ -354,15 +354,17 @@ async function openNoticeDetail(id) {
         </table>
       </div>
       <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--rule);display:flex;align-items:center;gap:0.8rem;flex-wrap:wrap;">
-        <button class="btn btn-sm" style="background:var(--accent-3);color:#fff;" onclick="closeNotice(${id})">Close Notice</button>
+        <button class="btn btn-sm" style="background:var(--accent-3);color:#fff;" data-close-id="${id}">Close Notice</button>
         <span class="text-muted text-small">${closeCaption}</span>
       </div>`;
 
     document.getElementById('notice-detail-close-3').addEventListener('click', () => closeModal('notice-detail-modal'));
+    content.querySelector('[data-close-id]')?.addEventListener('click', () => closeNotice(id));
   } catch(e) {
     content.innerHTML = `
-      <button class="modal-close" onclick="closeModal('notice-detail-modal')">&times;</button>
+      <button class="modal-close" id="notice-detail-close-err">&times;</button>
       <p style="color:var(--accent-3); padding:1rem;">${esc(e.message)}</p>`;
+    document.getElementById('notice-detail-close-err').addEventListener('click', () => closeModal('notice-detail-modal'));
   }
 }
 
@@ -671,10 +673,6 @@ function closeModal(id) {
   document.body.style.overflow = '';
 }
 
-// Expose closeModal globally so inline onclick handlers in dynamically rendered
-// modal HTML (e.g. the error state button) can call it.
-window.closeModal = closeModal;
-
 // ── Close Notice ─────────────────────────────────────────────────────────────────
 
 /**
@@ -685,8 +683,6 @@ window.closeModal = closeModal;
  *
  * Closing removes the notice record, deletes all uploaded files from storage,
  * and archives any completion statistics so the monthly chart is preserved.
- *
- * Exposed globally to support the inline onclick="closeNotice(id)" in modal HTML.
  *
  * @param {number} id — notice ID to close
  */
@@ -700,4 +696,3 @@ async function closeNotice(id) {
     alert('Could not close notice: ' + e.message);
   }
 }
-window.closeNotice = closeNotice;

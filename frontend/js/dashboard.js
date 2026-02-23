@@ -372,11 +372,12 @@ async function openNoticeDetail(id) {
       </div>
       ${isOwnNotice && allCompleted ? `
       <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--rule);display:flex;align-items:center;gap:0.8rem;flex-wrap:wrap;">
-        <button class="btn btn-sm" style="background:var(--accent-3);color:#fff;" onclick="closeNotice(${id})">Close Notice</button>
+        <button class="btn btn-sm" style="background:var(--accent-3);color:#fff;" data-close-id="${id}">Close Notice</button>
         <span class="text-muted text-small">All targets completed &mdash; closing will permanently delete files and archive statistics.</span>
       </div>` : ''}`;
 
     document.getElementById('notice-modal-close-2').addEventListener('click', () => closeModal('notice-modal'));
+    content.querySelector('[data-close-id]')?.addEventListener('click', () => closeNotice(id));
 
     // Reload inbox in background so the unread dot disappears (is_read was set on the server).
     loadInbox();
@@ -442,8 +443,6 @@ async function submitAction(e) {
     const res  = await fetchAuth(`${API}/portal/notices/${noticeId}/status`, { method: 'PATCH', body: fd });
     const data = await res.json();
 
-    if (!res.ok) throw new Error(data.error || 'Update failed.');
-
     statusEl.className   = 'form-status success';
     statusEl.textContent = data.message;
     statusEl.style.display = 'block';
@@ -499,8 +498,6 @@ function esc(str) {
  * Available to the issuing department only when ALL target departments have
  * marked the notice as Completed. The server enforces this rule.
  *
- * Exposed globally so the inline onclick="closeNotice(id)" in the modal HTML works.
- *
  * @param {number} id — notice ID to close
  */
 async function closeNotice(id) {
@@ -513,4 +510,3 @@ async function closeNotice(id) {
     alert('Could not close notice: ' + e.message);
   }
 }
-window.closeNotice = closeNotice;

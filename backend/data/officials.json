@@ -1,14 +1,5 @@
 [
   {
-    "id": 1,
-    "name": "Shri Mahadev Kavre",
-    "service": "IAS",
-    "designation": "Commissioner, Raipur Division",
-    "division": "Commissioner's Office",
-    "email": "dcr.raipur@gmail.com",
-    "phone": "0771-2536660"
-  },
-  {
     "id": 2,
     "name": "Dr. Gaurav Kumar Singh",
     "service": "IAS",
@@ -19,9 +10,9 @@
   },
   {
     "id": 3,
-    "name": "Shri Lal Umed Singh",
+    "name": "Shri Sanjeev Shukla",
     "service": "IPS",
-    "designation": "Senior Superintendent of Police, Raipur",
+    "designation": "Commissioner of Police, Raipur",
     "division": "Police Department",
     "email": "raipurpolice@gmail.com",
     "phone": "0771-2285004"
