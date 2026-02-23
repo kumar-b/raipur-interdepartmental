@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    container_name: raipur-portal-app
+    restart: unless-stopped
+    env_file: ./backend/.env
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "5002:3000"
+    volumes:
+      - db-data:/app/backend/database
+      - uploads-data:/app/backend/uploads
+
+volumes:
+  db-data:
+  uploads-data:

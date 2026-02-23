@@ -1,0 +1,15 @@
+node_modules
+backend/node_modules
+backend/database/portal.db
+backend/database/*.db-shm
+backend/database/*.db-wal
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/tests
+.git
+.gitignore
+.env
+.env.*
+*.md
+docker-compose*.yml
+nginx/

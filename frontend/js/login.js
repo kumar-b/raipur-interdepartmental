@@ -19,7 +19,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // setFooterYear is provided by main.js which is loaded before this file.
   if (typeof setFooterYear === 'function') setFooterYear();
 
-  document.getElementById('login-form').addEventListener('submit', async function (e) {
+  const form = document.getElementById('login-form');
+  if (!form) return;
+
+  form.addEventListener('submit', async function (e) {
     e.preventDefault();
     const btn    = this.querySelector('button[type=submit]');
     const status = document.getElementById('login-status');
