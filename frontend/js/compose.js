@@ -1,30 +1,23 @@
 /* =====================================================
    NOTICE COMPOSE — compose.js
-   Loaded on: pages/notice-compose.html
    Responsibilities:
-     - Auth guard (only department users may compose notices)
-     - Populate the target department checkbox grid
-     - Handle "All Departments" vs specific targets toggle
-     - Validate and submit the notice creation form via POST /api/portal/notices
-     - Redirect to dashboard on success
+     - Auth guard (department users only)
+     - Load all active users for the recipient picker
+     - Group users by department label for visual clarity
+     - Live search filter across the user list
+     - Handle "All Users" vs specific user selection
+     - Submit notice via POST /api/portal/notices
    ===================================================== */
 
-// ── Auth guard — synchronous, runs before DOM parsing completes ───────────────
-// Redirect immediately so non-authorised users never see the compose form.
 const token = localStorage.getItem('portal_token');
 const user  = JSON.parse(localStorage.getItem('portal_user') || 'null');
 
 if (!token || !user) {
-  window.location.href = 'login.html';   // no active session
+  window.location.href = 'login.html';
 } else if (user.role === 'admin') {
-  window.location.href = 'admin.html';   // admin uses the admin dashboard instead
+  window.location.href = 'admin.html';
 }
 
-/**
- * esc — XSS-safe HTML escape for department names inserted into the checkbox grid.
- * @param {string|any} str
- * @returns {string}
- */
 function esc(str) {
   return String(str || '')
     .replace(/&/g, '&amp;')
@@ -33,51 +26,73 @@ function esc(str) {
     .replace(/"/g, '&quot;');
 }
 
-// ── Main init (waits for DOM) ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  // Shared utilities from main.js (setFooterYear, initNavToggle, fmt).
   setFooterYear();
   initNavToggle();
 
-  // Header — show current date and the composing department name.
-  document.getElementById('header-meta').textContent     = fmt(new Date().toISOString().slice(0,10));
+  document.getElementById('header-meta').textContent     = fmt(new Date().toISOString().slice(0, 10));
   document.getElementById('compose-eyebrow').textContent = `${user.dept_name || user.username} — New Notice`;
+  document.getElementById('deadline').min = new Date().toISOString().slice(0, 10);
 
-  // Prevent selecting past dates in the deadline date picker.
-  document.getElementById('deadline').min = new Date().toISOString().slice(0,10);
+  // ── Target mode toggle ────────────────────────────────────────────────────
+  const userPickerWrap = document.getElementById('user-picker-wrap');
 
-  // ── Target mode toggle ──────────────────────────────────────────────────────
-  // "All Departments" radio hides the checkbox grid (not needed).
-  // "Specific Departments" radio reveals it so the user can pick targets.
   document.getElementById('target_all_radio').addEventListener('change', () => {
-    document.getElementById('dept-checkbox-grid').style.display = 'none';
+    userPickerWrap.style.display = 'none';
   });
   document.getElementById('target_specific_radio').addEventListener('change', () => {
-    document.getElementById('dept-checkbox-grid').style.display = 'grid';
+    userPickerWrap.style.display = 'block';
   });
 
-  // ── Load department checkboxes ──────────────────────────────────────────────
-  // Public endpoint — no auth needed to list departments.
-  // Filter out the current department so a dept cannot target itself.
+  // ── Load active users and render grouped picker ───────────────────────────
   try {
-    const res   = await fetch(`${API}/departments`);
-    const depts = await res.json();
-    const grid  = document.getElementById('dept-checkbox-grid');
+    const res   = await fetch(`${API}/portal/users/active`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const users = await res.json();
+    const grid  = document.getElementById('user-checkbox-grid');
 
-    grid.innerHTML = depts
-      .filter(d => d.id !== user.dept_id) // exclude own department
-      .map(d => `
-        <label class="dept-checkbox-item">
-          <input type="checkbox" name="target_dept_ids" value="${d.id}" />
-          ${esc(d.name)}
-        </label>`).join('');
+    if (!users.length) {
+      grid.innerHTML = '<p class="text-muted text-small">No other users available.</p>';
+    } else {
+      // Group users by their department label.
+      const byDept = {};
+      users.forEach(u => {
+        const key = u.dept_name || 'No Department';
+        if (!byDept[key]) byDept[key] = [];
+        byDept[key].push(u);
+      });
+
+      grid.innerHTML = Object.entries(byDept).map(([deptName, deptUsers]) => `
+        <div class="user-group">
+          <div class="user-group-label">${esc(deptName)}</div>
+          ${deptUsers.map(u => `
+            <label class="dept-checkbox-item">
+              <input type="checkbox" name="target_user_ids" value="${u.id}" />
+              ${esc(u.username)}
+            </label>`).join('')}
+        </div>`).join('');
+    }
   } catch {
-    // Show a graceful error if the department list cannot be fetched.
-    document.getElementById('dept-checkbox-grid').innerHTML =
-      '<p class="text-muted text-small">Could not load departments.</p>';
+    document.getElementById('user-checkbox-grid').innerHTML =
+      '<p class="text-muted text-small">Could not load users.</p>';
   }
 
-  // ── Form submit handler ─────────────────────────────────────────────────────
+  // ── Live search filter ────────────────────────────────────────────────────
+  document.getElementById('user-search').addEventListener('input', function () {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#user-checkbox-grid .dept-checkbox-item').forEach(item => {
+      item.style.display = item.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+    // Hide group headers when all their users are hidden.
+    document.querySelectorAll('#user-checkbox-grid .user-group').forEach(group => {
+      const anyVisible = [...group.querySelectorAll('.dept-checkbox-item')]
+        .some(i => i.style.display !== 'none');
+      group.style.display = anyVisible ? '' : 'none';
+    });
+  });
+
+  // ── Form submit ───────────────────────────────────────────────────────────
   document.getElementById('compose-form').addEventListener('submit', async function (e) {
     e.preventDefault();
     const btn    = this.querySelector('button[type=submit]');
@@ -88,7 +103,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const isTargetAll = document.getElementById('target_all_radio').checked;
 
-    // Build FormData so the optional file attachment is sent as multipart.
     const fd = new FormData();
     fd.append('title',      document.getElementById('title').value.trim());
     fd.append('body',       document.getElementById('body').value.trim());
@@ -97,29 +111,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     fd.append('target_all', isTargetAll ? '1' : '0');
 
     if (!isTargetAll) {
-      // Collect all checked department IDs.
-      const checked = [...document.querySelectorAll('input[name=target_dept_ids]:checked')];
+      const checked = [...document.querySelectorAll('input[name=target_user_ids]:checked')];
       if (checked.length === 0) {
-        // Client-side guard — the server also validates this, but giving
-        // immediate feedback avoids an unnecessary network round-trip.
-        status.className   = 'form-status error';
-        status.textContent = 'Please select at least one target department, or choose "All Departments".';
+        status.className     = 'form-status error';
+        status.textContent   = 'Please select at least one recipient, or choose "All Users".';
         status.style.display = 'block';
-        btn.disabled     = false;
-        btn.textContent  = 'Issue Notice';
+        btn.disabled    = false;
+        btn.textContent = 'Issue Notice';
         return;
       }
-      // Append each selected dept ID as a separate FormData entry.
-      checked.forEach(cb => fd.append('target_dept_ids', cb.value));
+      checked.forEach(cb => fd.append('target_user_ids', cb.value));
     }
 
-    // Append the optional file attachment if one was selected.
     const attachFile = document.getElementById('attachment').files[0];
     if (attachFile) fd.append('attachment', attachFile);
 
     try {
-      // POST to the authenticated notices endpoint — include JWT manually
-      // because FormData prevents using a JSON Content-Type header.
       const res  = await fetch(`${API}/portal/notices`, {
         method:  'POST',
         headers: { 'Authorization': `Bearer ${token}` },
@@ -128,16 +135,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to create notice.');
 
-      status.className   = 'form-status success';
-      status.textContent = data.message;
+      status.className     = 'form-status success';
+      status.textContent   = data.message;
       status.style.display = 'block';
-
-      // Redirect to the dashboard after a short delay so the user can read
-      // the success message before the page changes.
       setTimeout(() => { window.location.href = 'dashboard.html'; }, 1200);
     } catch (err) {
-      status.className   = 'form-status error';
-      status.textContent = err.message;
+      status.className     = 'form-status error';
+      status.textContent   = err.message;
       status.style.display = 'block';
       btn.disabled    = false;
       btn.textContent = 'Issue Notice';

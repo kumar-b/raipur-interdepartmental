@@ -128,7 +128,8 @@ app.use('/api/contact',     contactLimiter, contactRouter);
 
 // ── Authenticated API ─────────────────────────────────
 app.use('/api/auth',   authLimiter, authRouter);
-app.use('/api/portal', usersRouter);
+app.use('/api/portal', noticesAuthRouter); // inbox, outbox, create/update/delete notices
+app.use('/api/portal', usersRouter);       // user management (admin only)
 
 // ── SPA fallback ──────────────────────────────────────
 // Serve index.html for any unknown path so the frontend router works on reload.

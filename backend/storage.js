@@ -74,6 +74,11 @@ async function saveFile(file) {
   }
 
   // ── Local disk fallback ──────────────────────────────────────────────────
+  // Ensure uploads directory exists (may be absent on a fresh server deploy).
+  const uploadsDir = path.join(__dirname, 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
   // Write the in-memory buffer to the uploads directory synchronously.
   const dest = path.join(__dirname, 'uploads', filename);
   fs.writeFileSync(dest, file.buffer);

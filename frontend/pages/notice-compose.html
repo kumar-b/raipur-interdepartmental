@@ -38,7 +38,7 @@
       <div class="page-header">
         <span class="eyebrow" id="compose-eyebrow">Compose</span>
         <h1>Create Interdepartmental Notice</h1>
-        <p class="text-muted text-small">Issue a formal notice or circular to one or more departments.</p>
+        <p class="text-muted text-small">Issue a formal notice or circular to one or more users.</p>
       </div>
 
       <form class="compose-wrap" id="compose-form" enctype="multipart/form-data" novalidate>
@@ -70,19 +70,23 @@
         </div>
 
         <div class="form-group">
-          <label>Target Departments *</label>
+          <label>Recipients *</label>
           <div style="margin-bottom:0.6rem;">
             <label class="dept-checkbox-item" style="margin-bottom:0.3rem;">
               <input type="radio" name="target_mode" value="all" id="target_all_radio" />
-              <strong>All Departments</strong>
+              <strong>All Users</strong>
             </label>
             <label class="dept-checkbox-item">
               <input type="radio" name="target_mode" value="specific" id="target_specific_radio" checked />
-              Specific departments (select below)
+              Specific users (select below)
             </label>
           </div>
-          <div class="dept-checkbox-grid" id="dept-checkbox-grid" style="display:grid;">
-            <!-- Populated by JS -->
+          <div id="user-picker-wrap">
+            <input type="text" id="user-search" placeholder="Search by name or department…"
+                   style="margin-bottom:0.6rem; width:100%;" autocomplete="off" />
+            <div id="user-checkbox-grid">
+              <!-- Populated by compose.js -->
+            </div>
           </div>
         </div>
 

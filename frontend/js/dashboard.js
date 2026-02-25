@@ -212,7 +212,7 @@ function renderInbox(filterStatus) {
           <div class="notice-meta" style="margin-top:0.3rem; display:flex; flex-wrap:wrap; gap:0.3rem; align-items:center;">
             <span class="prio-badge ${n.priority}">${esc(n.priority)}</span>
             <span class="status-badge ${n.status}${n.is_overdue && n.status!=='Completed' ? ' overdue' : ''}">${esc(n.status)}</span>
-            <span class="text-muted" style="font-size:0.68rem;">From: ${esc(n.source_dept_name)}</span>
+            <span class="text-muted" style="font-size:0.68rem;">From: ${esc(n.source_dept_name || n.created_by_username)}</span>
             <span class="text-muted" style="font-size:0.68rem;">Deadline: ${fmt(n.deadline)}</span>
             ${overdueBadge}
           </div>
@@ -271,10 +271,13 @@ function renderOutbox() {
     const overdueBadge = n.is_overdue
       ? `<span class="overdue-badge">OVERDUE &mdash; ${n.days_lapsed}d lapsed</span>`
       : '';
-    // Target chips — coloured by each dept's individual acknowledgement status.
+    // Target chips — coloured by each user's individual acknowledgement status.
     const targetsHtml = n.targets.map(t => {
-      const statusClass = t.name === 'All Departments' ? '' : (t.status || '');
-      return `<span class="target-chip ${statusClass}">${esc(t.name)}</span>`;
+      const statusClass = t.username === 'All Users' ? '' : (t.status || '');
+      const label = t.username === 'All Users'
+        ? 'All Users'
+        : (t.dept_code ? `${t.username} (${t.dept_code})` : t.username);
+      return `<span class="target-chip ${statusClass}">${esc(label)}</span>`;
     }).join('');
 
     return `
@@ -332,26 +335,26 @@ async function openNoticeDetail(id) {
     const res    = await fetchAuth(`${API}/portal/notices/${id}`);
     const notice = await res.json();
 
-    // Build the status table rows — one row per target department.
+    // Build the status table rows — one row per recipient user.
     const statusRows = notice.statuses.map(s => `
       <tr>
-        <td>${esc(s.dept_name)}</td>
+        <td>${esc(s.username)}${s.dept_code ? ` <span class="text-muted text-small">(${esc(s.dept_code)})</span>` : ''}</td>
         <td><span class="status-badge ${s.status}">${esc(s.status)}</span></td>
         <td class="text-small">${s.remark ? esc(s.remark) : '<span class="text-muted">—</span>'}</td>
         <td>${s.reply_path ? `<a class="attachment-link" href="${s.reply_path}" target="_blank">Reply</a>` : '<span class="text-muted text-small">—</span>'}</td>
       </tr>`).join('');
 
     // Determine if the "Close Notice" button should be shown.
-    // Dept users: only when they own the notice AND all targets have completed.
+    // Dept users: only when they own the notice AND all recipients have completed.
     // (Admin close logic is handled separately in admin.js.)
-    const isOwnNotice  = notice.source_dept_id === user.dept_id;
+    const isOwnNotice  = notice.created_by === user.id;
     const allCompleted = notice.statuses.length > 0 &&
       notice.statuses.every(s => s.status === 'Completed');
 
     content.innerHTML = `
       <button class="modal-close" id="notice-modal-close-2">&times;</button>
       <p class="text-muted" style="font-size:0.65rem; letter-spacing:0.15em; text-transform:uppercase; margin-bottom:0.5rem;">
-        ${esc(notice.source_dept_name)} &mdash; ${fmt(notice.created_at.slice(0,10))}
+        ${esc(notice.source_dept_name || notice.created_by_username)} &mdash; ${fmt(notice.created_at.slice(0,10))}
       </p>
       <h2 style="margin-bottom:0.8rem;">${esc(notice.title)}</h2>
       <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">
@@ -363,17 +366,17 @@ async function openNoticeDetail(id) {
       <p style="white-space:pre-wrap;">${esc(notice.body)}</p>
       ${notice.attachment_name ? `<p><a class="attachment-link" href="${notice.attachment_path}" target="_blank">&#128206; ${esc(notice.attachment_name)}</a></p>` : ''}
       <hr class="rule" />
-      <h3 style="font-size:0.7rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); margin-bottom:0.8rem;">Status per Department</h3>
+      <h3 style="font-size:0.7rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); margin-bottom:0.8rem;">Status per Recipient</h3>
       <div class="table-scroll">
         <table class="officials-table">
-          <thead><tr><th>Department</th><th>Status</th><th>Remark</th><th>Reply</th></tr></thead>
+          <thead><tr><th>Recipient</th><th>Status</th><th>Remark</th><th>Reply</th></tr></thead>
           <tbody>${statusRows}</tbody>
         </table>
       </div>
       ${isOwnNotice && allCompleted ? `
       <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--rule);display:flex;align-items:center;gap:0.8rem;flex-wrap:wrap;">
         <button class="btn btn-sm" style="background:var(--accent-3);color:#fff;" data-close-id="${id}">Close Notice</button>
-        <span class="text-muted text-small">All targets completed &mdash; closing will permanently delete files and archive statistics.</span>
+        <span class="text-muted text-small">All recipients completed &mdash; closing will permanently delete files and archive statistics.</span>
       </div>` : ''}`;
 
     document.getElementById('notice-modal-close-2').addEventListener('click', () => closeModal('notice-modal'));

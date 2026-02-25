@@ -1,38 +1,41 @@
 /**
  * db.js — SQLite database connection and schema initialisation.
  *
- * Uses better-sqlite3 for synchronous, low-overhead database access.
- * WAL journal mode is enabled for better concurrent read performance.
- * Foreign key enforcement is turned on to maintain referential integrity.
+ * Architecture: users are the central unit. Department is a display
+ * label on a user, not a structural concept in the notice flow.
  *
- * Tables created (if they do not already exist):
+ * Tables:
+ *   departments        — reference lookup (code, name, category). No FK in notices.
+ *   users              — login accounts; dept_id is a display label only.
+ *   notices            — one row per notice; source = created_by user.
+ *   notice_status      — one row per (notice, recipient user). Tracks acknowledgement.
+ *   notice_archive_stats — archived monthly completion counts from closed notices.
+ *   refresh_tokens     — long-lived session tokens (future use).
  *
- *   departments     — master list of government departments
- *   users           — portal login accounts (admin or department role)
- *   notices         — interdepartmental notice records
- *   notice_targets  — maps a notice to its specific target department(s)
- *                     (only populated when target_all = 0)
- *   notice_status   — per-department acknowledgement status for each notice
- *   refresh_tokens  — long-lived tokens for session refresh (future use)
+ * Dropped:
+ *   notice_targets     — eliminated; notice_status is the single source of truth.
+ *   notices.source_dept_id — source is now derived from the created_by user.
  */
 
 const Database = require('better-sqlite3');
-const path = require('path');
+const path     = require('path');
 
-// Open (or create) the SQLite database file next to this module.
 const db = new Database(path.join(__dirname, 'portal.db'));
 
-// WAL mode allows readers and a single writer to operate concurrently.
 db.pragma('journal_mode = WAL');
-
-// Enforce REFERENCES constraints so cascades and NULL-sets work correctly.
 db.pragma('foreign_keys = ON');
 
-// ── Schema ──────────────────────────────────────────────────────────────────
+// ── Drop tables that are being redesigned (FK order: children first) ──────────
 db.exec(`
-  -- Master list of all government departments in the district.
-  -- "code" is a short uppercase identifier used as a display tag (e.g. REVENUE).
-  -- "category" groups departments on the public-facing page (Administration, etc.).
+  DROP TABLE IF EXISTS notice_status;
+  DROP TABLE IF EXISTS notice_targets;
+  DROP TABLE IF EXISTS notices;
+`);
+
+// ── Create all tables ─────────────────────────────────────────────────────────
+db.exec(`
+  -- Department reference table — pure lookup data.
+  -- dept_id on users is a display label; it has no role in the notice flow.
   CREATE TABLE IF NOT EXISTS departments (
     id          INTEGER PRIMARY KEY,
     code        TEXT    NOT NULL UNIQUE,
@@ -42,11 +45,10 @@ db.exec(`
     category    TEXT
   );
 
-  -- User accounts for portal login.
-  -- role = 'admin'      → full access: view all, manage users, delete notices.
-  -- role = 'department' → scoped to own dept: send notices, respond to inbox.
-  -- dept_id is NULL for admin accounts; SET NULL on department deletion.
-  -- is_active = 0 blocks login without deleting the account history.
+  -- Portal login accounts.
+  -- role = 'admin'      → full access: view all notices, manage users.
+  -- role = 'department' → personal inbox/outbox, compose notices.
+  -- dept_id is a display label (e.g. "Revenue Dept") — NULL for admin accounts.
   CREATE TABLE IF NOT EXISTS users (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     username      TEXT    NOT NULL UNIQUE,
@@ -58,42 +60,29 @@ db.exec(`
     last_login    TEXT
   );
 
-  -- One row per notice issued by a department.
-  -- target_all = 1 means every other department is a recipient;
-  -- target_all = 0 means only the departments listed in notice_targets receive it.
-  -- attachment_path holds either a local /uploads/<file> path or an S3 URL.
-  CREATE TABLE IF NOT EXISTS notices (
-    id               INTEGER PRIMARY KEY AUTOINCREMENT,
-    title            TEXT    NOT NULL,
-    body             TEXT    NOT NULL,
-    priority         TEXT    NOT NULL CHECK(priority IN ('High','Normal','Low')),
-    deadline         TEXT    NOT NULL,           -- ISO date string YYYY-MM-DD
-    source_dept_id   INTEGER NOT NULL REFERENCES departments(id),
-    target_all       INTEGER NOT NULL DEFAULT 0, -- 1 = broadcast to all depts
-    attachment_path  TEXT,                       -- local path or S3 URL
-    attachment_name  TEXT,                       -- original file name shown in UI
-    created_by       INTEGER NOT NULL REFERENCES users(id),
-    created_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+  -- One row per notice. Source is the creating user (created_by).
+  -- target_all = 1: every active non-admin user is a recipient.
+  -- target_all = 0: only users listed in notice_status are recipients.
+  CREATE TABLE notices (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    title           TEXT    NOT NULL,
+    body            TEXT    NOT NULL,
+    priority        TEXT    NOT NULL CHECK(priority IN ('High','Normal','Low')),
+    deadline        TEXT    NOT NULL,
+    created_by      INTEGER NOT NULL REFERENCES users(id),
+    target_all      INTEGER NOT NULL DEFAULT 0,
+    attachment_path TEXT,
+    attachment_name TEXT,
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
   );
 
-  -- Explicit target departments for a notice (only when target_all = 0).
-  -- Cascade-deleted when the parent notice is removed.
-  CREATE TABLE IF NOT EXISTS notice_targets (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    notice_id INTEGER NOT NULL REFERENCES notices(id) ON DELETE CASCADE,
-    dept_id   INTEGER NOT NULL REFERENCES departments(id),
-    UNIQUE(notice_id, dept_id)
-  );
-
-  -- Per-department acknowledgement state for each notice.
-  -- One row is inserted for every (notice, target dept) pair at creation time.
+  -- Per-user acknowledgement state for each notice.
+  -- One row per (notice, recipient user).
   -- status lifecycle: Pending → Noted → Completed.
-  -- is_read tracks whether the department user has opened the notice detail.
-  -- reply_path / reply_name store an optional response file uploaded by the dept.
-  CREATE TABLE IF NOT EXISTS notice_status (
+  CREATE TABLE notice_status (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     notice_id   INTEGER NOT NULL REFERENCES notices(id) ON DELETE CASCADE,
-    dept_id     INTEGER NOT NULL REFERENCES departments(id),
+    user_id     INTEGER NOT NULL REFERENCES users(id),
     status      TEXT    NOT NULL DEFAULT 'Pending'
                         CHECK(status IN ('Pending','Noted','Completed')),
     remark      TEXT,
@@ -101,29 +90,25 @@ db.exec(`
     reply_name  TEXT,
     is_read     INTEGER NOT NULL DEFAULT 0,
     updated_at  TEXT,
-    UNIQUE(notice_id, dept_id)
+    UNIQUE(notice_id, user_id)
   );
 
-  -- Refresh tokens for extending sessions without re-entering credentials.
-  -- token_hash stores a bcrypt / SHA hash of the raw token for safe storage.
+  -- Archived monthly completion counts written when a notice is closed.
+  -- The monthly-stats endpoint UNIONs this with live notice_status rows.
+  CREATE TABLE IF NOT EXISTS notice_archive_stats (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    month     TEXT    NOT NULL,
+    completed INTEGER NOT NULL DEFAULT 0,
+    closed_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  -- Refresh tokens for future session-extension support.
   CREATE TABLE IF NOT EXISTS refresh_tokens (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token_hash  TEXT    NOT NULL,
     expires_at  TEXT    NOT NULL,
     created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
-  );
-
-  -- Archive of per-month completion counts from closed notices.
-  -- When a notice is closed (deleted), its completed notice_status rows are
-  -- counted per calendar month and saved here so the monthly-stats chart
-  -- continues to reflect historical activity even after the notice is gone.
-  -- The monthly-stats query UNIONs this table with live notice_status rows.
-  CREATE TABLE IF NOT EXISTS notice_archive_stats (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    month     TEXT    NOT NULL,              -- YYYY-MM (e.g. '2026-02')
-    completed INTEGER NOT NULL DEFAULT 0,    -- count of completed notice_status rows
-    closed_at TEXT    NOT NULL DEFAULT (datetime('now'))
   );
 `);
 

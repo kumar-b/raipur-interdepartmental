@@ -272,7 +272,7 @@ function renderNoticesTable(filter) {
       <tr class="${rowClass}" style="cursor:pointer;" data-notice-id="${n.id}">
         <td class="text-small text-muted">${createdDate}</td>
         <td><span class="official-name" style="font-size:0.85rem;">${esc(n.title)}</span></td>
-        <td class="text-small">${esc(n.source_dept_code || '')}</td>
+        <td class="text-small">${esc(n.created_by_username || '')}${n.source_dept_code ? ` <span class="text-muted">(${esc(n.source_dept_code)})</span>` : ''}</td>
         <td><span class="prio-badge ${esc(n.priority)}">${esc(n.priority)}</span></td>
         <td class="text-small">${esc(n.deadline)}&nbsp;${overdueHtml}</td>
         <td class="text-small">${n.pending_count} / ${n.total_targets}</td>
@@ -311,10 +311,10 @@ async function openNoticeDetail(id) {
     const res    = await fetchAuth(`${API}/portal/notices/${id}`);
     const notice = await res.json();
 
-    // Build the per-dept status table — includes remark, updated date, reply link.
+    // Build the per-recipient status table — includes remark, updated date, reply link.
     const statusRows = (notice.statuses || []).map(s => `
       <tr>
-        <td>${esc(s.dept_name)}</td>
+        <td>${esc(s.username)}${s.dept_code ? ` <span class="text-muted text-small">(${esc(s.dept_code)})</span>` : ''}</td>
         <td><span class="status-badge ${esc(s.status)}">${esc(s.status)}</span></td>
         <td class="text-small">${s.remark ? esc(s.remark) : '<span class="text-muted">—</span>'}</td>
         <td class="text-small">${s.updated_at ? (s.updated_at.slice(0,10)) : '<span class="text-muted">—</span>'}</td>
@@ -328,13 +328,13 @@ async function openNoticeDetail(id) {
     // Admin can close ANY notice regardless of completion status.
     // The caption below the button changes to warn about force-closing pending notices.
     const closeCaption = allCompleted
-      ? 'All departments completed &mdash; closing will permanently delete files and archive statistics.'
-      : '&#9888; Admin override: force-closing will remove this notice even though some departments have not yet completed it. Statistics for any completed actions will be preserved.';
+      ? 'All recipients completed &mdash; closing will permanently delete files and archive statistics.'
+      : '&#9888; Admin override: force-closing will remove this notice even though some recipients have not yet completed it. Statistics for any completed actions will be preserved.';
 
     content.innerHTML = `
       <button class="modal-close" id="notice-detail-close-3">&times;</button>
       <p class="text-muted" style="font-size:0.65rem; letter-spacing:0.15em; text-transform:uppercase; margin-bottom:0.5rem;">
-        ${esc(notice.source_dept_name || '')} &mdash; ${createdDate}
+        ${esc(notice.source_dept_name || notice.created_by_username || '')} &mdash; ${createdDate}
       </p>
       <h2 style="margin-bottom:0.8rem;">${esc(notice.title)}</h2>
       <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">
@@ -346,10 +346,10 @@ async function openNoticeDetail(id) {
       <p style="white-space:pre-wrap;">${esc(notice.body)}</p>
       ${notice.attachment_name ? `<p><a class="attachment-link" href="${esc(notice.attachment_path)}" target="_blank">&#128206; ${esc(notice.attachment_name)}</a></p>` : ''}
       <hr class="rule" />
-      <h3 style="font-size:0.7rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); margin-bottom:0.8rem;">Status per Department</h3>
+      <h3 style="font-size:0.7rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); margin-bottom:0.8rem;">Status per Recipient</h3>
       <div class="table-scroll">
         <table class="officials-table">
-          <thead><tr><th>Department</th><th>Status</th><th>Remark</th><th>Updated</th><th>Reply</th></tr></thead>
+          <thead><tr><th>Recipient</th><th>Status</th><th>Remark</th><th>Updated</th><th>Reply</th></tr></thead>
           <tbody>${statusRows || '<tr><td colspan="5" class="text-muted text-small">No status data.</td></tr>'}</tbody>
         </table>
       </div>

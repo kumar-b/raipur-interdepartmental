@@ -118,4 +118,22 @@ router.patch('/users/:id/password', requireAdmin, (req, res) => {
   res.json({ success: true, message: 'Password reset successfully.' });
 });
 
+// ── GET /users/active — list active non-admin users (for compose picker) ──────
+// Accessible to any authenticated user so the compose form can load recipients.
+// Returns users grouped-friendly (sorted by dept name then username).
+// Excludes the requesting user — you cannot send a notice to yourself.
+const { requireAuth } = require('../middleware/auth');
+
+router.get('/users/active', requireAuth, (req, res) => {
+  const users = db.prepare(`
+    SELECT u.id, u.username, u.dept_id,
+           d.name AS dept_name, d.code AS dept_code
+    FROM users u
+    LEFT JOIN departments d ON d.id = u.dept_id
+    WHERE u.is_active = 1 AND u.role != 'admin' AND u.id != ?
+    ORDER BY d.name ASC, u.username ASC
+  `).all(req.user.id);
+  res.json(users);
+});
+
 module.exports = router;
