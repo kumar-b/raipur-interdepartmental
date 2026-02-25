@@ -52,25 +52,21 @@ function createDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL, body TEXT NOT NULL,
       priority TEXT NOT NULL CHECK(priority IN ('High','Normal','Low')),
-      deadline TEXT NOT NULL, source_dept_id INTEGER NOT NULL,
+      deadline TEXT NOT NULL,
+      created_by INTEGER NOT NULL REFERENCES users(id),
       target_all INTEGER NOT NULL DEFAULT 0,
       attachment_path TEXT, attachment_name TEXT,
-      created_by INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-    CREATE TABLE IF NOT EXISTS notice_targets (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      notice_id INTEGER NOT NULL REFERENCES notices(id) ON DELETE CASCADE,
-      dept_id INTEGER NOT NULL, UNIQUE(notice_id, dept_id)
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
     CREATE TABLE IF NOT EXISTS notice_status (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       notice_id INTEGER NOT NULL REFERENCES notices(id) ON DELETE CASCADE,
-      dept_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL REFERENCES users(id),
       status TEXT NOT NULL DEFAULT 'Pending'
         CHECK(status IN ('Pending','Noted','Completed')),
       remark TEXT, reply_path TEXT, reply_name TEXT,
       is_read INTEGER NOT NULL DEFAULT 0, updated_at TEXT,
-      UNIQUE(notice_id, dept_id)
+      UNIQUE(notice_id, user_id)
     );
     CREATE TABLE IF NOT EXISTS refresh_tokens (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,11 +97,14 @@ function createDb() {
   const adminHash = bcrypt.hashSync('Admin@Test123', 10);
   const deptHash  = bcrypt.hashSync('Dept@Test123',  10);
 
+  // Users: admin=1, dept_revenue=2, dept_health=3, dept_civil=4
+  // 'dept_civil' avoids collision with 'dept_pwd' which users.test.js creates dynamically.
   db.prepare(`INSERT INTO users (username,password_hash,role,dept_id) VALUES
     ('admin',        ?, 'admin',      NULL),
     ('dept_revenue', ?, 'department', 1),
-    ('dept_health',  ?, 'department', 2)
-  `).run(adminHash, deptHash, deptHash);
+    ('dept_health',  ?, 'department', 2),
+    ('dept_civil',   ?, 'department', 3)
+  `).run(adminHash, deptHash, deptHash, deptHash);
 
   return db;
 }

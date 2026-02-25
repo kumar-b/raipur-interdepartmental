@@ -77,7 +77,7 @@ describe('POST /api/portal/notices', () => {
       .field('body',            'Please submit the Q4 budget report by the deadline.')
       .field('priority',        'High')
       .field('deadline',        '2026-12-31')
-      .field('target_dept_ids', '2'); // Health dept (id=2)
+      .field('target_user_ids', '3'); // Health dept (id=2)
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
@@ -108,7 +108,7 @@ describe('POST /api/portal/notices', () => {
       .field('body',            'From admin')
       .field('priority',        'Normal')
       .field('deadline',        '2026-12-31')
-      .field('target_dept_ids', '2');
+      .field('target_user_ids', '3');
 
     expect(res.status).toBe(403);
   });
@@ -130,7 +130,7 @@ describe('POST /api/portal/notices', () => {
       .field('body',            'test body')
       .field('priority',        'Urgent') // invalid
       .field('deadline',        '2026-12-31')
-      .field('target_dept_ids', '2');
+      .field('target_user_ids', '3');
 
     expect(res.status).toBe(400);
   });
@@ -143,12 +143,12 @@ describe('POST /api/portal/notices', () => {
       .field('body',            'test body')
       .field('priority',        'Normal')
       .field('deadline',        '31-12-2026') // wrong format
-      .field('target_dept_ids', '2');
+      .field('target_user_ids', '3');
 
     expect(res.status).toBe(400);
   });
 
-  test('returns 400 when neither target_all nor target_dept_ids is provided', async () => {
+  test('returns 400 when neither target_all nor target_user_ids is provided', async () => {
     const res = await request(app)
       .post('/api/portal/notices')
       .set('Authorization', `Bearer ${revenueToken}`)
@@ -167,7 +167,7 @@ describe('POST /api/portal/notices', () => {
       .field('body',            'test body')
       .field('priority',        'Low')
       .field('deadline',        '2026-12-31')
-      .field('target_dept_ids', '2');
+      .field('target_user_ids', '3');
 
     expect(res.status).toBe(401);
   });
@@ -291,7 +291,7 @@ describe('GET /api/portal/notices/:id', () => {
     // health already fetched the notice above — is_read should now be 1
     const db  = require('../database/db');
     const row = db.prepare(
-      'SELECT is_read FROM notice_status WHERE notice_id = ? AND dept_id = 2'
+      'SELECT is_read FROM notice_status WHERE notice_id = ? AND user_id = 3'
     ).get(primaryNoticeId);
 
     expect(row.is_read).toBe(1);
@@ -326,7 +326,7 @@ describe('PATCH /api/portal/notices/:id/status', () => {
       .field('body',            'Created for status-update validation tests.')
       .field('priority',        'Low')
       .field('deadline',        '2026-12-31')
-      .field('target_dept_ids', '1'); // Revenue dept (id=1)
+      .field('target_user_ids', '2'); // Revenue user (id=2)
 
     validationNoticeId = res.body.noticeId;
   });
@@ -343,7 +343,7 @@ describe('PATCH /api/portal/notices/:id/status', () => {
 
     const db  = require('../database/db');
     const row = db.prepare(
-      'SELECT status, remark FROM notice_status WHERE notice_id = ? AND dept_id = 2'
+      'SELECT status, remark FROM notice_status WHERE notice_id = ? AND user_id = 3'
     ).get(primaryNoticeId);
     expect(row.status).toBe('Noted');
     expect(row.remark).toBe('Acknowledged by Health Department.');
@@ -361,7 +361,7 @@ describe('PATCH /api/portal/notices/:id/status', () => {
 
     const db  = require('../database/db');
     const row = db.prepare(
-      'SELECT status FROM notice_status WHERE notice_id = ? AND dept_id = 2'
+      'SELECT status FROM notice_status WHERE notice_id = ? AND user_id = 3'
     ).get(primaryNoticeId);
     expect(row.status).toBe('Completed');
   });
@@ -471,7 +471,7 @@ describe('GET /api/portal/notices/monthly-stats', () => {
       .field('body',            'Created to verify monthly stats increment.')
       .field('priority',        'Low')
       .field('deadline',        '2026-12-31')
-      .field('target_dept_ids', '2');
+      .field('target_user_ids', '3');
 
     await request(app)
       .patch(`/api/portal/notices/${createRes.body.noticeId}/status`)
@@ -530,7 +530,7 @@ describe('DELETE /api/portal/notices/:id — close notice', () => {
       .field('body',            'This notice will remain pending throughout these tests.')
       .field('priority',        'Normal')
       .field('deadline',        '2026-12-31')
-      .field('target_dept_ids', '2'); // Health — left Pending intentionally
+      .field('target_user_ids', '3'); // Health — left Pending intentionally
     pendingNoticeId = pendingRes.body.noticeId;
 
     // Create + fully complete a notice for the stats-archive tests
@@ -541,7 +541,7 @@ describe('DELETE /api/portal/notices/:id — close notice', () => {
       .field('body',            'All targets will complete this so we can verify stat archiving.')
       .field('priority',        'Low')
       .field('deadline',        '2026-12-31')
-      .field('target_dept_ids', '2');
+      .field('target_user_ids', '3');
     completedNoticeId = compRes.body.noticeId;
 
     await request(app)
@@ -562,7 +562,7 @@ describe('DELETE /api/portal/notices/:id — close notice', () => {
       .field('body',            'Will be closed by admin after completion.')
       .field('priority',        'Low')
       .field('deadline',        '2026-12-31')
-      .field('target_dept_ids', '2');
+      .field('target_user_ids', '3');
     const nid = createRes.body.noticeId;
 
     await request(app)
@@ -594,7 +594,7 @@ describe('DELETE /api/portal/notices/:id — close notice', () => {
       .field('body',            'Created and closed by revenue after health completes.')
       .field('priority',        'Low')
       .field('deadline',        '2026-12-31')
-      .field('target_dept_ids', '2');
+      .field('target_user_ids', '3');
     const nid = createRes.body.noticeId;
 
     await request(app)
@@ -622,14 +622,14 @@ describe('DELETE /api/portal/notices/:id — close notice', () => {
       .field('body',            'Only revenue or admin may close this.')
       .field('priority',        'Low')
       .field('deadline',        '2026-12-31')
-      .field('target_dept_ids', '2');
+      .field('target_user_ids', '3');
 
     const res = await request(app)
       .delete(`/api/portal/notices/${createRes.body.noticeId}`)
       .set('Authorization', `Bearer ${healthToken}`);
 
     expect(res.status).toBe(403);
-    expect(res.body.error).toMatch(/only close notices created by your department/i);
+    expect(res.body.error).toMatch(/only close notices you created/i);
   });
 
   test('dept user cannot close their own notice when targets have not completed — returns 400', async () => {
@@ -653,7 +653,7 @@ describe('DELETE /api/portal/notices/:id — close notice', () => {
       .field('body',            'Admin will close this even though health has not responded.')
       .field('priority',        'High')
       .field('deadline',        '2026-01-01') // already overdue
-      .field('target_dept_ids', '2');
+      .field('target_user_ids', '3');
     const nid = createRes.body.noticeId;
 
     // Health has NOT acknowledged — notice is still Pending.
@@ -686,8 +686,8 @@ describe('DELETE /api/portal/notices/:id — close notice', () => {
       .field('body',            'Health will complete; PWD stays Pending. Admin must still be able to close.')
       .field('priority',        'Normal')
       .field('deadline',        '2026-12-31')
-      .field('target_dept_ids', '2')   // Health — will be completed below
-      .field('target_dept_ids', '3');  // PWD   — no seeded user, remains Pending
+      .field('target_user_ids', '3')   // Health — will be completed below
+      .field('target_user_ids', '4');  // PWD   — seeded user (id=4), will stay Pending
 
     expect(createRes.status).toBe(201);
     const nid = createRes.body.noticeId;
@@ -702,7 +702,7 @@ describe('DELETE /api/portal/notices/:id — close notice', () => {
     // Confirm mixed state in DB: one Completed row, one Pending row.
     const db = require('../database/db');
     const rows = db.prepare(
-      'SELECT dept_id, status FROM notice_status WHERE notice_id = ? ORDER BY dept_id'
+      'SELECT user_id, status FROM notice_status WHERE notice_id = ? ORDER BY user_id'
     ).all(nid);
     expect(rows.some(r => r.status === 'Completed')).toBe(true); // Health completed
     expect(rows.some(r => r.status === 'Pending')).toBe(true);   // PWD still pending
@@ -737,7 +737,7 @@ describe('DELETE /api/portal/notices/:id — close notice', () => {
       .field('body',            'No one will complete this before admin closes it.')
       .field('priority',        'Low')
       .field('deadline',        '2026-12-31')
-      .field('target_dept_ids', '2');
+      .field('target_user_ids', '3');
 
     await request(app)
       .delete(`/api/portal/notices/${createRes.body.noticeId}`)
@@ -786,7 +786,7 @@ describe('DELETE /api/portal/notices/:id — close notice', () => {
       .field('body',            'Verify archive row exists after close.')
       .field('priority',        'Normal')
       .field('deadline',        '2026-12-31')
-      .field('target_dept_ids', '2');
+      .field('target_user_ids', '3');
     const nid = createRes.body.noticeId;
 
     await request(app)
@@ -822,7 +822,7 @@ describe('DELETE /api/portal/notices/:id — close notice', () => {
       .field('body',            'Has an attachment that should be deleted on close.')
       .field('priority',        'Normal')
       .field('deadline',        '2026-12-31')
-      .field('target_dept_ids', '2')
+      .field('target_user_ids', '3')
       .attach('attachment', Buffer.from('fake pdf'), { filename: 'doc.pdf', contentType: 'application/pdf' });
 
     const nid = createRes.body.noticeId;
