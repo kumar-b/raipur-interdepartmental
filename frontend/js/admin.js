@@ -180,7 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
  * Called on init and whenever the refresh button is clicked.
  */
 async function loadAll() {
-  await Promise.all([loadSummary(), loadNotices(), loadUsers(), loadDepts(), loadMonthlyStats()]);
+  await Promise.all([loadSummary(), loadNotices(), loadUsers(), loadDepts(), loadMonthlyStats(), loadDelayedResponse()]);
 }
 
 /**
@@ -311,15 +311,33 @@ async function openNoticeDetail(id) {
     const res    = await fetchAuth(`${API}/portal/notices/${id}`);
     const notice = await res.json();
 
-    // Build the per-recipient status table — includes remark, updated date, reply link.
-    const statusRows = (notice.statuses || []).map(s => `
+    // Build the per-recipient status table — includes remark, updated date, days after due, and reply link.
+    const due = notice.deadline ? new Date(notice.deadline) : null;
+    if (due) due.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+
+    const statusRows = (notice.statuses || []).map(s => {
+      let daysAfterDue = '—';
+      if (due) {
+        if (s.status !== 'Pending' && s.updated_at) {
+          const responded = new Date(s.updated_at); responded.setHours(0, 0, 0, 0);
+          const diff = Math.floor((responded - due) / 86400000);
+          daysAfterDue = diff <= 0 ? '0' : `+${diff}`;
+        } else {
+          const diff = Math.floor((today - due) / 86400000);
+          daysAfterDue = diff <= 0 ? '—' : `+${diff}`;
+        }
+      }
+      return `
       <tr>
         <td>${esc(s.username)}${s.dept_code ? ` <span class="text-muted text-small">(${esc(s.dept_code)})</span>` : ''}</td>
         <td><span class="status-badge ${esc(s.status)}">${esc(s.status)}</span></td>
         <td class="text-small">${s.remark ? esc(s.remark) : '<span class="text-muted">—</span>'}</td>
         <td class="text-small">${s.updated_at ? (s.updated_at.slice(0,10)) : '<span class="text-muted">—</span>'}</td>
+        <td class="text-small">${daysAfterDue}</td>
         <td>${s.reply_path ? `<a class="attachment-link" href="${esc(s.reply_path)}" target="_blank">Reply</a>` : '<span class="text-muted text-small">—</span>'}</td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
 
     const createdDate  = (notice.created_at || '').slice(0, 10);
     const allCompleted = (notice.statuses || []).length > 0 &&
@@ -349,8 +367,8 @@ async function openNoticeDetail(id) {
       <h3 style="font-size:0.7rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); margin-bottom:0.8rem;">Status per Recipient</h3>
       <div class="table-scroll">
         <table class="officials-table">
-          <thead><tr><th>Recipient</th><th>Status</th><th>Remark</th><th>Updated</th><th>Reply</th></tr></thead>
-          <tbody>${statusRows || '<tr><td colspan="5" class="text-muted text-small">No status data.</td></tr>'}</tbody>
+          <thead><tr><th>Recipient</th><th>Status</th><th>Remark</th><th>Updated</th><th>Days After Due</th><th>Reply</th></tr></thead>
+          <tbody>${statusRows || '<tr><td colspan="6" class="text-muted text-small">No status data.</td></tr>'}</tbody>
         </table>
       </div>
       <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--rule);display:flex;align-items:center;gap:0.8rem;flex-wrap:wrap;">
@@ -658,6 +676,39 @@ async function loadMonthlyStats() {
       </div>`;
   } catch(e) {
     content.innerHTML = `<p style="padding:1rem; color:var(--accent-3);">${esc(e.message)}</p>`;
+  }
+}
+
+// ── Delayed Response Stats ───────────────────────────────────────────────────────
+
+/**
+ * loadDelayedResponse — fetches per-user delayed-response totals and renders
+ * them in the Delayed Response tab as a sortable table.
+ * Sorted server-side by total_days_delayed descending so the worst offenders
+ * appear at the top.
+ */
+async function loadDelayedResponse() {
+  const tbody = document.getElementById('delayed-response-tbody');
+  try {
+    const res  = await fetchAuth(`${API}/portal/notices/delayed-response`);
+    const data = await res.json();
+
+    if (!data.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="text-muted text-small" style="padding:1rem;">No response data recorded yet.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map(u => `
+      <tr>
+        <td class="official-name">${esc(u.username)}</td>
+        <td class="text-small">${u.dept_name ? esc(u.dept_name) : '<span class="text-muted">—</span>'}</td>
+        <td class="text-small">${u.total_responded}</td>
+        <td class="text-small">${u.delayed_count}</td>
+        <td class="text-small">${u.total_days_delayed > 0 ? `+${u.total_days_delayed}` : '0'}</td>
+      </tr>`).join('');
+  } catch(e) {
+    console.error('loadDelayedResponse error:', e.message);
+    tbody.innerHTML = `<tr><td colspan="5" style="padding:1rem; color:var(--accent-3);">${esc(e.message)}</td></tr>`;
   }
 }
 

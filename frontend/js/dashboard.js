@@ -336,13 +336,31 @@ async function openNoticeDetail(id) {
     const notice = await res.json();
 
     // Build the status table rows — one row per recipient user.
-    const statusRows = notice.statuses.map(s => `
+    const due = notice.deadline ? new Date(notice.deadline) : null;
+    if (due) due.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+
+    const statusRows = notice.statuses.map(s => {
+      let daysAfterDue = '—';
+      if (due) {
+        if (s.status !== 'Pending' && s.updated_at) {
+          const responded = new Date(s.updated_at); responded.setHours(0, 0, 0, 0);
+          const diff = Math.floor((responded - due) / 86400000);
+          daysAfterDue = diff <= 0 ? '0' : `+${diff}`;
+        } else {
+          const diff = Math.floor((today - due) / 86400000);
+          daysAfterDue = diff <= 0 ? '—' : `+${diff}`;
+        }
+      }
+      return `
       <tr>
         <td>${esc(s.username)}${s.dept_code ? ` <span class="text-muted text-small">(${esc(s.dept_code)})</span>` : ''}</td>
         <td><span class="status-badge ${s.status}">${esc(s.status)}</span></td>
         <td class="text-small">${s.remark ? esc(s.remark) : '<span class="text-muted">—</span>'}</td>
+        <td class="text-small">${daysAfterDue}</td>
         <td>${s.reply_path ? `<a class="attachment-link" href="${s.reply_path}" target="_blank">Reply</a>` : '<span class="text-muted text-small">—</span>'}</td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
 
     // Determine if the "Close Notice" button should be shown.
     // Dept users: only when they own the notice AND all recipients have completed.
@@ -369,7 +387,7 @@ async function openNoticeDetail(id) {
       <h3 style="font-size:0.7rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); margin-bottom:0.8rem;">Status per Recipient</h3>
       <div class="table-scroll">
         <table class="officials-table">
-          <thead><tr><th>Recipient</th><th>Status</th><th>Remark</th><th>Reply</th></tr></thead>
+          <thead><tr><th>Recipient</th><th>Status</th><th>Remark</th><th>Days After Due</th><th>Reply</th></tr></thead>
           <tbody>${statusRows}</tbody>
         </table>
       </div>

@@ -25,14 +25,7 @@ const db = new Database(path.join(__dirname, 'portal.db'));
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-// ── Drop tables that are being redesigned (FK order: children first) ──────────
-db.exec(`
-  DROP TABLE IF EXISTS notice_status;
-  DROP TABLE IF EXISTS notice_targets;
-  DROP TABLE IF EXISTS notices;
-`);
-
-// ── Create all tables ─────────────────────────────────────────────────────────
+// ── Create all tables (IF NOT EXISTS — safe to run on every startup) ─────────
 db.exec(`
   -- Department reference table — pure lookup data.
   -- dept_id on users is a display label; it has no role in the notice flow.
@@ -63,7 +56,7 @@ db.exec(`
   -- One row per notice. Source is the creating user (created_by).
   -- target_all = 1: every active non-admin user is a recipient.
   -- target_all = 0: only users listed in notice_status are recipients.
-  CREATE TABLE notices (
+  CREATE TABLE IF NOT EXISTS notices (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     title           TEXT    NOT NULL,
     body            TEXT    NOT NULL,
@@ -79,7 +72,7 @@ db.exec(`
   -- Per-user acknowledgement state for each notice.
   -- One row per (notice, recipient user).
   -- status lifecycle: Pending → Noted → Completed.
-  CREATE TABLE notice_status (
+  CREATE TABLE IF NOT EXISTS notice_status (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     notice_id   INTEGER NOT NULL REFERENCES notices(id) ON DELETE CASCADE,
     user_id     INTEGER NOT NULL REFERENCES users(id),

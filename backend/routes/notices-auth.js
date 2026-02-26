@@ -109,6 +109,46 @@ router.get('/notices/monthly-stats', requireAdmin, (req, res) => {
   }
 });
 
+// ── GET /notices/delayed-response  (admin) ────────────────────────────────────
+// Returns per-user total days delayed after the notice deadline, across all
+// notices they have responded to (status = Noted or Completed).
+router.get('/notices/delayed-response', requireAdmin, (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT
+        u.id        AS user_id,
+        u.username,
+        d.name      AS dept_name,
+        d.code      AS dept_code,
+        COUNT(ns.notice_id) AS total_responded,
+        SUM(
+          CASE WHEN CAST(julianday(date(ns.updated_at)) - julianday(date(n.deadline)) AS INTEGER) > 0
+               THEN CAST(julianday(date(ns.updated_at)) - julianday(date(n.deadline)) AS INTEGER)
+               ELSE 0
+          END
+        ) AS total_days_delayed,
+        SUM(
+          CASE WHEN julianday(date(ns.updated_at)) - julianday(date(n.deadline)) > 0
+               THEN 1 ELSE 0
+          END
+        ) AS delayed_count
+      FROM notice_status ns
+      JOIN  users       u ON u.id  = ns.user_id
+      JOIN  notices     n ON n.id  = ns.notice_id
+      LEFT JOIN departments d ON d.id = u.dept_id
+      WHERE ns.status IN ('Noted', 'Completed')
+        AND ns.updated_at IS NOT NULL
+        AND n.deadline    IS NOT NULL
+      GROUP BY ns.user_id
+      ORDER BY total_days_delayed DESC, u.username ASC
+    `).all();
+    res.json(rows);
+  } catch (err) {
+    console.error('[delayed-response]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── GET /notices/inbox  (dept user) ──────────────────────────────────────────
 // Returns notices addressed directly to the logged-in user.
 router.get('/notices/inbox', requireAuth, (req, res) => {

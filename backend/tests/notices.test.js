@@ -511,6 +511,174 @@ describe('GET /api/portal/notices/monthly-stats', () => {
   });
 });
 
+// ── GET /api/portal/notices/delayed-response (admin only) ────────────────────
+// Runs after the PATCH block so there are already Completed entries in the DB.
+// Two notices are created here specifically to exercise the delay calculation:
+//   • onTimeNoticeId  — future deadline  → response is early   (contributes 0 days)
+//   • lateNoticeId    — past deadline    → response is delayed (contributes N days)
+describe('GET /api/portal/notices/delayed-response', () => {
+  let onTimeNoticeId; // deadline far in future — health responds early
+  let lateNoticeId;   // deadline far in past   — health responds late
+
+  beforeAll(async () => {
+    // Notice 1: future deadline — any response today is early.
+    const onTimeRes = await request(app)
+      .post('/api/portal/notices')
+      .set('Authorization', `Bearer ${revenueToken}`)
+      .field('title',           'On-Time Response Notice')
+      .field('body',            'Deadline is far in the future — response will be early.')
+      .field('priority',        'Normal')
+      .field('deadline',        '2099-12-31')
+      .field('target_user_ids', '3'); // health
+    onTimeNoticeId = onTimeRes.body.noticeId;
+
+    // Notice 2: past deadline — any response today is late.
+    const lateRes = await request(app)
+      .post('/api/portal/notices')
+      .set('Authorization', `Bearer ${revenueToken}`)
+      .field('title',           'Overdue Response Notice')
+      .field('body',            'Deadline was in the past — response will be delayed.')
+      .field('priority',        'High')
+      .field('deadline',        '2025-01-01')
+      .field('target_user_ids', '3'); // health
+    lateNoticeId = lateRes.body.noticeId;
+
+    // Health responds to both.
+    await Promise.all([
+      request(app)
+        .patch(`/api/portal/notices/${onTimeNoticeId}/status`)
+        .set('Authorization', `Bearer ${healthToken}`)
+        .field('status', 'Completed')
+        .field('remark', 'Responded well before deadline.'),
+      request(app)
+        .patch(`/api/portal/notices/${lateNoticeId}/status`)
+        .set('Authorization', `Bearer ${healthToken}`)
+        .field('status', 'Completed')
+        .field('remark', 'Responding after the deadline has passed.'),
+    ]);
+  });
+
+  test('admin receives 200 with an array', async () => {
+    const res = await request(app)
+      .get('/api/portal/notices/delayed-response')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('each entry has the required fields with correct types', async () => {
+    const res = await request(app)
+      .get('/api/portal/notices/delayed-response')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    const entry = res.body[0];
+    expect(entry).toHaveProperty('user_id');
+    expect(entry).toHaveProperty('username');
+    expect(entry).toHaveProperty('total_responded');
+    expect(entry).toHaveProperty('total_days_delayed');
+    expect(entry).toHaveProperty('delayed_count');
+    expect(typeof entry.total_responded).toBe('number');
+    expect(typeof entry.total_days_delayed).toBe('number');
+    expect(typeof entry.delayed_count).toBe('number');
+  });
+
+  test('only includes users who have responded — pending-only users are excluded', async () => {
+    // Create a notice targeting dept_civil (id=4) and leave it Pending.
+    await request(app)
+      .post('/api/portal/notices')
+      .set('Authorization', `Bearer ${revenueToken}`)
+      .field('title',           'Pending Only — civil dept')
+      .field('body',            'civil will not respond to this notice.')
+      .field('priority',        'Low')
+      .field('deadline',        '2025-01-01')
+      .field('target_user_ids', '4'); // civil — intentionally left Pending
+
+    const res = await request(app)
+      .get('/api/portal/notices/delayed-response')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    // dept_civil appears in no Completed/Noted rows → must be absent.
+    const civilEntry = res.body.find(e => e.username === 'dept_civil');
+    expect(civilEntry).toBeUndefined();
+  });
+
+  test('late response (past deadline) contributes positive days to total_days_delayed', async () => {
+    const res = await request(app)
+      .get('/api/portal/notices/delayed-response')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    const healthEntry = res.body.find(e => e.username === 'dept_health');
+    expect(healthEntry).toBeDefined();
+    // lateNoticeId had deadline 2025-01-01; today is well past that.
+    expect(healthEntry.total_days_delayed).toBeGreaterThan(0);
+    expect(healthEntry.delayed_count).toBeGreaterThanOrEqual(1);
+  });
+
+  test('on-time response does not increase total_days_delayed', async () => {
+    const db = require('../database/db');
+
+    // Isolate: check the DB directly — the on-time notice row must have 0 delay.
+    const row = db.prepare(`
+      SELECT CAST(julianday(date(ns.updated_at)) - julianday(date(n.deadline)) AS INTEGER) AS diff
+      FROM notice_status ns
+      JOIN notices n ON n.id = ns.notice_id
+      WHERE ns.notice_id = ? AND ns.user_id = 3
+    `).get(onTimeNoticeId);
+
+    // updated_at (today) is before 2099-12-31, so diff must be <= 0.
+    expect(row.diff).toBeLessThanOrEqual(0);
+  });
+
+  test('total_responded counts all Noted + Completed rows for the user', async () => {
+    const res = await request(app)
+      .get('/api/portal/notices/delayed-response')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    const healthEntry = res.body.find(e => e.username === 'dept_health');
+    expect(healthEntry).toBeDefined();
+    // Health responded to onTimeNoticeId + lateNoticeId in this block,
+    // plus primaryNoticeId from the PATCH block → at least 3 total.
+    expect(healthEntry.total_responded).toBeGreaterThanOrEqual(3);
+  });
+
+  test('delayed_count is always <= total_responded and total_days_delayed >= 0', async () => {
+    const res = await request(app)
+      .get('/api/portal/notices/delayed-response')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    res.body.forEach(entry => {
+      expect(entry.delayed_count).toBeLessThanOrEqual(entry.total_responded);
+      expect(entry.total_days_delayed).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  test('results are ordered by total_days_delayed descending', async () => {
+    const res = await request(app)
+      .get('/api/portal/notices/delayed-response')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    const delays = res.body.map(e => e.total_days_delayed);
+    const sorted = [...delays].sort((a, b) => b - a);
+    expect(delays).toEqual(sorted);
+  });
+
+  test('department user is blocked with 403', async () => {
+    const res = await request(app)
+      .get('/api/portal/notices/delayed-response')
+      .set('Authorization', `Bearer ${revenueToken}`);
+
+    expect(res.status).toBe(403);
+  });
+
+  test('unauthenticated request returns 401', async () => {
+    const res = await request(app).get('/api/portal/notices/delayed-response');
+    expect(res.status).toBe(401);
+  });
+});
+
 // ── DELETE /api/portal/notices/:id  (close a notice) ─────────────────────────
 // "Closing" permanently removes a notice, deletes its files, and archives stats.
 // Admin: can force-close ANY notice regardless of completion status.

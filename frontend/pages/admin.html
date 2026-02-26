@@ -65,6 +65,7 @@
         <button class="dash-tab active" data-tab="all-notices">All Notices</button>
         <button class="dash-tab" data-tab="manage-users">Manage Users</button>
         <button class="dash-tab" data-tab="monthly-stats">Monthly Stats</button>
+        <button class="dash-tab" data-tab="delayed-response">Delayed Response</button>
       </div>
 
       <!-- ALL NOTICES panel -->
@@ -126,6 +127,29 @@
         </p>
         <div id="monthly-stats-content">
           <p class="text-muted text-small" style="padding:1rem;">Loading&hellip;</p>
+        </div>
+      </div>
+
+      <!-- DELAYED RESPONSE panel -->
+      <div class="dash-panel" id="panel-delayed-response">
+        <p style="font-size:0.62rem; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); margin-bottom:1.5rem;">
+          Total Days Delayed After Due Date &mdash; Per User
+        </p>
+        <div class="table-scroll">
+          <table class="officials-table" id="delayed-response-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Department</th>
+                <th>Responded</th>
+                <th>Delayed (notices)</th>
+                <th>Total Days Delayed</th>
+              </tr>
+            </thead>
+            <tbody id="delayed-response-tbody">
+              <tr><td colspan="5" class="text-muted text-small" style="padding:1rem;">Loading&hellip;</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
