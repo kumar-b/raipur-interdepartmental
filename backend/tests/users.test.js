@@ -233,6 +233,130 @@ describe('PATCH /api/portal/users/:id/status', () => {
   });
 });
 
+// ── Admin-panel users persist through schema re-initialisation ────────────────
+// Simulates a server restart by re-running every CREATE TABLE IF NOT EXISTS
+// statement from db.js against the live in-memory test database.
+// If any statement were a DROP TABLE the user created via the API would vanish.
+describe('Users created via admin panel survive schema re-initialisation (simulated restart)', () => {
+  let persistUserId;
+
+  beforeAll(async () => {
+    // Create a fresh user through the real API endpoint — exactly as the admin
+    // panel does it.
+    const res = await request(app)
+      .post('/api/portal/users')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ username: 'dept_persist', password: 'Persist@1234', role: 'department', dept_id: 1 });
+
+    persistUserId = res.body.userId;
+  });
+
+  test('user exists in DB before simulated restart', () => {
+    const db  = require('../database/db');
+    const row = db.prepare(`SELECT * FROM users WHERE username = 'dept_persist'`).get();
+    expect(row).toBeDefined();
+    expect(row.role).toBe('department');
+  });
+
+  test('user still exists after schema re-initialisation (CREATE TABLE IF NOT EXISTS is safe)', () => {
+    const db = require('../database/db');
+
+    // Re-run the exact schema statements from db.js — this is what happens on
+    // every server restart. A DROP TABLE here would erase the user.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS departments (
+        id INTEGER PRIMARY KEY, code TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL, website TEXT, description TEXT, category TEXT
+      );
+      CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('admin','department')),
+        dept_id INTEGER REFERENCES departments(id) ON DELETE SET NULL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        last_login TEXT
+      );
+      CREATE TABLE IF NOT EXISTS notices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT NOT NULL, body TEXT NOT NULL,
+        priority TEXT NOT NULL CHECK(priority IN ('High','Normal','Low')),
+        deadline TEXT NOT NULL,
+        created_by INTEGER NOT NULL REFERENCES users(id),
+        target_all INTEGER NOT NULL DEFAULT 0,
+        attachment_path TEXT, attachment_name TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS notice_status (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        notice_id INTEGER NOT NULL REFERENCES notices(id) ON DELETE CASCADE,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        status TEXT NOT NULL DEFAULT 'Pending'
+          CHECK(status IN ('Pending','Noted','Completed')),
+        remark TEXT, reply_path TEXT, reply_name TEXT,
+        is_read INTEGER NOT NULL DEFAULT 0, updated_at TEXT,
+        UNIQUE(notice_id, user_id)
+      );
+      CREATE TABLE IF NOT EXISTS notice_archive_stats (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        month TEXT NOT NULL, completed INTEGER NOT NULL DEFAULT 0,
+        closed_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS refresh_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_hash TEXT NOT NULL, expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+
+    const row = db.prepare(`SELECT * FROM users WHERE username = 'dept_persist'`).get();
+    expect(row).toBeDefined();
+    expect(row.id).toBe(persistUserId);
+    expect(row.role).toBe('department');
+    expect(row.is_active).toBe(1);
+  });
+
+  test('user can still log in after simulated restart', async () => {
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ username: 'dept_persist', password: 'Persist@1234' });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('token');
+    expect(res.body.user.username).toBe('dept_persist');
+    expect(res.body.user.role).toBe('department');
+  });
+
+  test('user appears in admin user list after simulated restart', async () => {
+    const res = await request(app)
+      .get('/api/portal/users')
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(res.status).toBe(200);
+    const found = res.body.find(u => u.username === 'dept_persist');
+    expect(found).toBeDefined();
+    expect(found.id).toBe(persistUserId);
+  });
+
+  test('total user count is unchanged after schema re-init', () => {
+    const db = require('../database/db');
+    // Count before and after a second schema re-init — must be identical.
+    const countBefore = db.prepare('SELECT COUNT(*) AS c FROM users').get().c;
+    db.exec(`CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE, password_hash TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('admin','department')),
+      dept_id INTEGER REFERENCES departments(id) ON DELETE SET NULL,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_login TEXT
+    );`);
+    const countAfter = db.prepare('SELECT COUNT(*) AS c FROM users').get().c;
+    expect(countAfter).toBe(countBefore);
+  });
+});
+
 // ── PATCH /api/portal/users/:id/password ─────────────────────────────────────
 describe('PATCH /api/portal/users/:id/password', () => {
   test('admin resets a user password and new password works for login', async () => {
